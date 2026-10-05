@@ -3,7 +3,6 @@
  *
  * POST /admin/setup     webhook, komendy, opisy i zdjęcie profilowe bota
  * POST /admin/stickers  zestaw naklejek Otta (potrzebny STICKER_OWNER_ID)
- * GET  /admin/contacts  CSV z mailami osób, które zgodziły się na kontakt
  */
 
 import { sameSecret } from "./crypto";
@@ -14,7 +13,6 @@ const COMMANDS = [
   { command: "dodaj", description: "Dopisz do listy, np. /dodaj mleko, chleb" },
   { command: "przypomnij", description: "Przypomnienie, np. /przypomnij jutro o 9" },
   { command: "przypomnienia", description: "Zaplanowane przypomnienia" },
-  { command: "pakiet", description: "Darmowe wiadomości AI za maila" },
   { command: "klucz", description: "Własny klucz AI, bez limitu" },
   { command: "strefa", description: "Strefa czasowa" },
   { command: "pomoc", description: "Co umiem" },
@@ -88,12 +86,6 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
         (error: Error) => error.message,
       );
     return Response.json({ stickers: result });
-  }
-
-  if (url.pathname === "/admin/contacts" && request.method === "GET") {
-    const rows = await env.REGISTRY.get(env.REGISTRY.idFromName("main")).contacts();
-    const csv = ["email,zgoda", ...rows.map((r) => `${r.email},${new Date(r.created_at).toISOString()}`)].join("\n");
-    return new Response(csv, { headers: { "content-type": "text/csv; charset=utf-8", "cache-control": "no-store" } });
   }
 
   return new Response("Nie ma takiego polecenia.", { status: 404 });

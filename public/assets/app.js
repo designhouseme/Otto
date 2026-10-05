@@ -232,7 +232,7 @@ const ANSWERS = {
   },
   koszt: {
     mood: "happy",
-    text: "Przypomnienia, lista i przyciski są za darmo, zawsze. Do tego 10 wiadomości AI za maila, a bez limitu z własnym kluczem, na przykład darmowym od Google.",
+    text: "Przypomnienia, lista i przyciski są za darmo, zawsze. Na start dostajesz 10 wiadomości AI, bez maila i rejestracji, a bez limitu działam z własnym kluczem, na przykład darmowym od Google.",
     action: "cennik",
   },
   dane: {

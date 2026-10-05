@@ -1,5 +1,5 @@
 /**
- * Hashe (maile, kody, numery czatów) i szyfrowanie kluczy API użytkowników.
+ * Hashe (numery czatów, adresy IP ze strony) i szyfrowanie kluczy API użytkowników.
  * Klucz szyfrujemy AES-GCM sekretem Workera, a numer czatu wchodzi jako dane powiązane:
  * zaszyfrowanego klucza nie da się przenieść do innej rozmowy.
  */
@@ -11,7 +11,7 @@ export async function sha256(value: string) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Hash z sekretnym dodatkiem: bez HASH_PEPPER nie da się sprawdzić, czy dany mail jest w bazie. */
+/** Hash z sekretnym dodatkiem: bez HASH_PEPPER nie da się sprawdzić, czy dany czat jest w bazie. */
 export function peppered(value: string, env: Env) {
   return sha256(`${value}:${env.HASH_PEPPER || "otto-dev"}`);
 }
@@ -39,11 +39,6 @@ export async function unseal(sealed: string, secret: string, context: string) {
     cipher,
   );
   return new TextDecoder().decode(plain);
-}
-
-export function sixDigits() {
-  const [n] = crypto.getRandomValues(new Uint32Array(1));
-  return String(n % 1_000_000).padStart(6, "0");
 }
 
 export function sameSecret(a: string, b: string) {

@@ -8,9 +8,8 @@ const SECRET = process.env.SECRET ?? "dev-secret";
 const ADMIN = process.env.ADMIN ?? "dev-admin";
 const BOT = process.env.BOT ?? "otto_dev_bot";
 const LOG = process.argv[2];
-// Nowy czat i mail przy każdym przebiegu: jeden mail i jedno konto dostają pakiet tylko raz, także po /zapomnij.
+// Nowy czat przy każdym przebiegu: konto dostaje darmowe wiadomości AI tylko raz, także po /zapomnij.
 const CHAT = 100_000 + Math.floor(Math.random() * 900_000);
-const EMAIL = `test+${CHAT}@example.com`;
 let updateId = Math.floor(Date.now() / 1000);
 let userMsgId = 1;
 let failures = 0;
@@ -39,12 +38,12 @@ function callback(data, msg) {
   return { update_id: ++updateId, callback_query: { id: String(updateId), from: { id: CHAT, first_name: "Test" }, data, message: { chat: { id: CHAT, type: "private" }, date: 0, ...msg } } };
 }
 
-/** Wysyła i zwraca nowe linie logu z wywołaniami Telegrama i maila. */
+/** Wysyła i zwraca nowe linie logu z wywołaniami Telegrama. */
 async function step(name, update, expect) {
   const before = logText().length;
   await send(update);
   const out = logText().slice(before);
-  const calls = out.split("\n").filter((l) => /\[(tg|mail)\]|failed/.test(l));
+  const calls = out.split("\n").filter((l) => /\[tg\]|failed/.test(l));
   const ok = expect.every((re) => re.test(out));
   if (!ok) failures++;
   console.log(`${ok ? "✓" : "✗"} ${name}`);
@@ -66,7 +65,7 @@ const lastSentId = (out) => {
   const ok = t.status === 302 && (t.headers.get("location") ?? "").includes(`t.me/${BOT}?start=strona`);
   console.log(`${ok ? "✓" : "✗"} /telegram → ${t.headers.get("location")}`);
   if (!ok) failures++;
-  const a = await fetch(`${BASE}/admin/contacts`);
+  const a = await fetch(`${BASE}/admin/setup`, { method: "POST" });
   console.log(`${a.status === 401 ? "✓" : "✗"} admin bez tokenu: ${a.status}`);
   if (a.status !== 401) failures++;
   const q = await fetch(`${BASE}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", text: "co umiesz?" }] }) });
@@ -76,8 +75,10 @@ const lastSentId = (out) => {
 }
 
 // --- rozmowa ---
-await step("/start", message("/start"), [/sendMessage.*Cześć, jestem Otto/, /callback_data":"pack"/]);
-await step("tekst bez AI → przyciski", message("kupić mleko"), [/Kiedy mam przypomnieć\?/, /"l:\d+"/]);
+// Testowy klucz Gemini nie działa, więc każda wiadomość AI kończy się przyciskami, a licznik wraca.
+await step("/start: 10 wiadomości AI na start", message("/start"), [/sendMessage.*Cześć, jestem Otto/, /Na start masz 10 wiadomości AI/]);
+await step("/pomoc pokazuje licznik", message("/pomoc"), [/Darmowe wiadomości AI: 10/]);
+await step("AI nie działa → przyciski", message("kupić mleko"), [/Nie dogadałem się teraz z modelem/, /"l:\d+"/]);
 
 let out = await step("dopisz do listy (przycisk)", callback(`l:${userMsgId - 1}`, { message_id: 1, reply_to_message: { message_id: userMsgId - 1, date: 0, chat: { id: CHAT, type: "private" }, text: "kupić mleko" } }), [
   /sendMessage.*Twoja lista.*1\. kupić mleko/,
@@ -96,27 +97,12 @@ if (shortHash && listId) {
   );
 }
 
-await step("termin bez AI", message("jutro o 9 faktura"), [/Ustawić tak\?/, /⏰ Jutro o 9:00/]);
+await step("termin z wiadomości jako przycisk", message("jutro o 9 faktura"), [/⏰ Jutro o 9:00/]);
 const soon = Math.floor(Date.now() / 1000) + 33;
 await step("przypomnienie za ~33 s", callback(`r:${userMsgId - 1}:a${soon}`, { message_id: 2 }), [/Przypomnę dziś o/]);
 await step("/przypomnienia", message("/przypomnienia"), [/Zaplanowane przypomnienia/, /callback_data":"x:\d+"/]);
 
-// --- darmowy pakiet ---
-await step("/pakiet", message("/pakiet"), [/Podaj maila/]);
-out = await step("mail → kod", message(EMAIL.replace("test", "Test")), [/deleteMessage/, new RegExp(`\\[mail\\] do: ${EMAIL.replace("+", "\\+")}`), /Wysłałem kod na te/]);
-const code = out.match(/Twój kod do Otta: (\d{6})/)?.[1];
-await step("zły kod", message("000000"), [/Ten kod się nie zgadza/]);
-await step("dobry kod", message(code ?? "x"), [/Gotowe! Masz 10 wiadomości AI/, /consent:1/]);
-await step("zgoda na kontakt", callback("consent:1", { message_id: 3 }), [/Zapisałem zgodę/]);
-{
-  const csv = await (await fetch(`${BASE}/admin/contacts`, { headers: { authorization: `Bearer ${ADMIN}` } })).text();
-  const ok = csv.includes(EMAIL);
-  console.log(`${ok ? "✓" : "✗"} /admin/contacts ma mail ze zgodą`);
-  if (!ok) failures++;
-}
-await step("drugi pakiet na ten sam mail", message("/pakiet"), [/Zostało Ci 10/]);
-await step("AI z zepsutym kluczem serwera → przyciski, licznik wraca", message("w piątek po pracy opony"), [/Nie dogadałem się teraz z modelem/]);
-await step("/pomoc pokazuje licznik", message("/pomoc"), [/Darmowe wiadomości AI: 10/]);
+await step("licznik wrócił po nieudanych próbach AI", message("/pomoc"), [/Darmowe wiadomości AI: 10/]);
 
 // --- klucz, strefa, dane ---
 await step("klucz wklejony bez komendy", message(`sk-proj-${"x1".repeat(20)}`), [/deleteMessage/, /(odrzucił ten klucz|Nie mogę teraz sprawdzić)/]);
@@ -131,12 +117,7 @@ if (!fired) failures++;
 
 await step("/zapomnij", message("/zapomnij"), [/Usunę wszystko/]);
 await step("potwierdzenie", callback("wipe", { message_id: 4 }), [/nic już o Tobie nie wiem/]);
-{
-  const csv = await (await fetch(`${BASE}/admin/contacts`, { headers: { authorization: `Bearer ${ADMIN}` } })).text();
-  const ok = !csv.includes(EMAIL);
-  console.log(`${ok ? "✓" : "✗"} po /zapomnij zgoda na kontakt usunięta`);
-  if (!ok) failures++;
-}
+await step("po /zapomnij darmowe wiadomości się nie odnawiają", message("/pomoc"), [/Darmowe wiadomości AI wykorzystane/]);
 
 // Po /zapomnij obiekt żyje dalej: przypomnienie musi się dać ustawić od razu.
 await step("przypomnienie zaraz po /zapomnij", message("/przypomnij jutro o 9"), [/Przypomnę jutro o 9:00/]);

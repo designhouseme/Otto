@@ -12,10 +12,12 @@ export const T = {
       "Napisz mi, o czym nie chcesz zapomnieć, a ustawię przypomnienie albo dopiszę to do Twojej listy. Treść zostaje tutaj, w Telegramie.",
       line,
     ].join("\n\n"),
-  welcomeAi: "Możesz pisać zwykłymi zdaniami albo używać przycisków.",
-  welcomeOffer: (free: number) =>
-    `Na start działają przyciski i proste terminy, np. „jutro o 9”. Chcesz pisać do mnie zwykłymi zdaniami? Odbierz ${messages(free)} AI za darmo.`,
-  welcomeManual: "Działają przyciski i proste terminy, np. „jutro o 9” albo „w piątek 15:30”.",
+  welcomeKey: "Masz podpięty własny klucz AI, więc piszesz do mnie zwykłymi zdaniami bez limitu.",
+  welcomeFree: (left: number) =>
+    `Na start masz ${messages(left)} AI: pisz do mnie zwykłymi zdaniami, np. „w piątek po pracy przypomnij mi o oponach”. Potem dalej działają przyciski i proste terminy, a bez limitu z własnym kluczem: /klucz`,
+  welcomeManual:
+    "Działają przyciski i proste terminy, np. „jutro o 9” albo „w piątek 15:30”. Zwykłe zdania zrozumiem z własnym kluczem AI: /klucz",
+  freeUsedStatus: "Darmowe wiadomości AI wykorzystane. Bez limitu z własnym kluczem: /klucz",
 
   help: (status: string) =>
     [
@@ -25,7 +27,6 @@ export const T = {
       "• /dodaj mleko, chleb: dopisuje do listy",
       "• /lista: Twoja lista, przypięta u góry czatu",
       "• /przypomnienia: co i kiedy przypomnę",
-      "• /pakiet: darmowe wiadomości AI za maila",
       "• /klucz: własny klucz AI, bez limitu",
       "• /strefa: strefa czasowa",
       "• /zapomnij: usuwam Twoje dane",
@@ -54,27 +55,6 @@ export const T = {
   remindersNote: "Treść jest w wiadomościach, na które odpowiem.",
 
   // Darmowe wiadomości AI
-  askEmail:
-    "Podaj maila, wyślę na niego 6-cyfrowy kod. Po wpisaniu kodu masz darmowe wiadomości AI.\n\nTwoją wiadomość z mailem usunę z czatu, a mail zapiszę tylko jako hash. /anuluj, jeśli się rozmyślisz.",
-  badEmail: "To nie wygląda na adres mailowy. Spróbuj jeszcze raz albo /anuluj.",
-  codeSent: (masked: string) =>
-    `Wysłałem kod na ${masked}. Wpisz tutaj 6 cyfr. Kod działa 15 minut.\n\nNie doszedł? Zajrzyj do spamu albo wyślij nowy przez /pakiet.`,
-  codeFormat: "Wpisz 6 cyfr z maila albo /anuluj.",
-  codeWrong: (left: number) => `Ten kod się nie zgadza. Zostało prób: ${left}.`,
-  codeExpired: "Ten kod już nie działa. Wyślij nowy przez /pakiet.",
-  tooManyCodes: "Wysłałem już kilka kodów. Spróbuj ponownie za godzinę.",
-  mailFailed: "Nie udało mi się wysłać maila. Spróbuj za chwilę.",
-  emailUsed: "Ten mail odebrał już darmowe wiadomości. Możesz dalej używać przycisków albo podpiąć własny klucz: /klucz",
-  chatUsed: "To konto odebrało już darmowe wiadomości. Możesz podpiąć własny klucz: /klucz",
-  packReady: (free: number) =>
-    `Gotowe! Masz ${messages(free)} AI. Pisz do mnie zwykłymi zdaniami, np. „w piątek po pracy przypomnij mi o oponach”.`,
-  consentAsk:
-    "Jeszcze jedno, zupełnie dobrowolne: czy Design House, twórcy Otta, mogą czasem napisać do Ciebie o botach dla firm?",
-  consentYes: "Dzięki! Zapisałem zgodę. Wycofasz ją przez /zapomnij.",
-  consentNo: "Jasne, nie zapisuję maila.",
-  packLeft: (left: number) => `${capitalize(remaining(left))} Ci ${left} ${plural(left, "darmowa wiadomość", "darmowe wiadomości", "darmowych wiadomości")} AI.`,
-  packUsed: "Darmowe wiadomości AI już wykorzystane. Dalej działają przyciski, a bez limitu z własnym kluczem.",
-  packOff: "Darmowe wiadomości AI są w tej chwili wyłączone. Działają przyciski, a z własnym kluczem AI bez limitu: /klucz",
   poolEmpty: "Darmowa pula na dziś się skończyła. Ustaw to przyciskami, a jutro wracam do zdań.",
   lastFree: "To była Twoja ostatnia darmowa wiadomość AI. Dalej ustawisz wszystko przyciskami, a bez limitu z własnym kluczem.",
   fewLeft: (left: number) => `(${remaining(left)} ${left} ${plural(left, "darmowa wiadomość", "darmowe wiadomości", "darmowych wiadomości")} AI)`,
@@ -110,14 +90,13 @@ export const T = {
   tzBad: "Nie znam takiej strefy. Przykłady: Europe/Warsaw, Europe/London, America/New_York.",
   cancelled: "Anulowane.",
   forgetAsk:
-    "Usunę wszystko, co o Tobie wiem: ustawienia, klucz, zaplanowane przypomnienia i zgodę na kontakt. Wiadomości i lista zostają w Telegramie, możesz je usunąć sam. Darmowy pakiet się nie odnowi.",
+    "Usunę wszystko, co o Tobie wiem: ustawienia, klucz i zaplanowane przypomnienia. Wiadomości i lista zostają w Telegramie, możesz je usunąć sam. Darmowe wiadomości AI się nie odnowią.",
   forgotten: "Gotowe, nic już o Tobie nie wiem. Jeśli wrócisz, kliknij /start.",
   notForgotten: "Nic nie usuwam.",
   unknownCommand: "Nie znam tej komendy. Zobacz /pomoc",
   error: "Coś mi się wysypało. Spróbuj jeszcze raz za chwilę.",
 
   // Przyciski
-  btnPack: (free: number) => `🎁 ${messages(free)} AI za maila`,
   btnKey: "🔑 Własny klucz AI",
   btnCompany: "Bot dla firmy",
   btnHow: "Jak to działa?",
@@ -135,9 +114,3 @@ export function plural(n: number, one: string, few: string, many: string) {
 
 const messages = (n: number) => `${n} ${plural(n, "wiadomość", "wiadomości", "wiadomości")}`;
 const remaining = (n: number) => plural(n, "została", "zostały", "zostało");
-const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-
-export function mask(email: string) {
-  const [user, domain] = email.split("@");
-  return `${user.slice(0, 2)}${"•".repeat(Math.max(1, Math.min(6, user.length - 2)))}@${domain}`;
-}

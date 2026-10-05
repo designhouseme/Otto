@@ -1,7 +1,6 @@
 /**
  * Jeden wspólny obiekt dla całej instancji:
- * - kto już odebrał darmowy pakiet (hash maila i hash numeru czatu, bez jawnych danych),
- * - zgody na kontakt (jedyne miejsce z jawnym mailem, tylko gdy ktoś kliknął „Tak”),
+ * - które konta Telegrama odebrały już darmowe wiadomości AI (tylko hash numeru czatu),
  * - dzienne bezpieczniki kosztów i limity zapytań ze strony.
  */
 
@@ -18,45 +17,20 @@ export class Registry extends DurableObject<Env> {
     this.sql = ctx.storage.sql;
     this.sql.exec("CREATE TABLE IF NOT EXISTS claims (id TEXT PRIMARY KEY, created_at INTEGER NOT NULL)");
     this.sql.exec(
-      "CREATE TABLE IF NOT EXISTS contacts (email TEXT PRIMARY KEY, chat_hash TEXT NOT NULL, created_at INTEGER NOT NULL)",
-    );
-    this.sql.exec(
       "CREATE TABLE IF NOT EXISTS budget (day TEXT NOT NULL, kind TEXT NOT NULL, used INTEGER NOT NULL, PRIMARY KEY (day, kind))",
     );
     this.sql.exec("CREATE TABLE IF NOT EXISTS hits (key TEXT NOT NULL, at INTEGER NOT NULL)");
     this.sql.exec("CREATE INDEX IF NOT EXISTS hits_key ON hits (key, at)");
+    // Pozostałość po wersji z mailem i zgodami na kontakt: tych danych już nie zbieramy.
+    this.sql.exec("DROP TABLE IF EXISTS contacts");
   }
 
-  isEmailClaimed(emailHash: string) {
-    return this.sql.exec("SELECT 1 FROM claims WHERE id = ?", `e:${emailHash}`).toArray().length > 0;
-  }
-
-  /** Jeden pakiet na mail i jeden na konto Telegrama. */
-  claim(emailHash: string, chatHash: string): "ok" | "email" | "chat" {
-    if (this.isEmailClaimed(emailHash)) return "email";
-    if (this.sql.exec("SELECT 1 FROM claims WHERE id = ?", `c:${chatHash}`).toArray().length) return "chat";
-    const now = Date.now();
-    this.sql.exec("INSERT INTO claims (id, created_at) VALUES (?, ?), (?, ?)", `e:${emailHash}`, now, `c:${chatHash}`, now);
-    return "ok";
-  }
-
-  addContact(email: string, chatHash: string) {
-    this.sql.exec(
-      "INSERT INTO contacts (email, chat_hash, created_at) VALUES (?, ?, ?) ON CONFLICT (email) DO UPDATE SET chat_hash = excluded.chat_hash",
-      email,
-      chatHash,
-      Date.now(),
-    );
-  }
-
-  forgetChat(chatHash: string) {
-    this.sql.exec("DELETE FROM contacts WHERE chat_hash = ?", chatHash);
-  }
-
-  contacts() {
-    return this.sql
-      .exec<{ email: string; created_at: number }>("SELECT email, created_at FROM contacts ORDER BY created_at")
-      .toArray();
+  /** Darmowe wiadomości raz na konto, także po /zapomnij. true = to konto dostaje je pierwszy raz. */
+  claimChat(chatHash: string) {
+    const id = `c:${chatHash}`;
+    if (this.sql.exec("SELECT 1 FROM claims WHERE id = ?", id).toArray().length) return false;
+    this.sql.exec("INSERT INTO claims (id, created_at) VALUES (?, ?)", id, Date.now());
+    return true;
   }
 
   /** Zużywa jedną wiadomość z dziennej puli. false = pula na dziś się skończyła. */

@@ -4,7 +4,7 @@
  * Jeden Worker: strona z `public/`, webhook Telegrama (`/tg/webhook`),
  * rozmowa z Ottem na stronie (`/api/ask`) i kilka poleceń administracyjnych (`/admin/*`).
  * Dane: Durable Objects. `Chat` to jeden obiekt na jedną osobę (stan, przypomnienia, alarm),
- * `Registry` to jeden wspólny obiekt (odebrane pakiety, zgody na kontakt, dzienne limity).
+ * `Registry` to jeden wspólny obiekt (konta, które odebrały darmowe wiadomości, i dzienne limity).
  *
  * Sekrety i adresy konkretnej instancji ustawiasz przez `wrangler secret put` (lista w README),
  * a lokalnie w `.dev.vars` (wzór: `.dev.vars.example`).
@@ -40,13 +40,12 @@
     "GEMINI_MODEL": "gemini-flash-latest",
     // Gdy główny model jest przeciążony (503), Otto raz ponawia na lżejszym.
     "GEMINI_FALLBACK_MODEL": "gemini-flash-lite-latest",
-    // Darmowe wiadomości AI na jedną osobę (po potwierdzeniu maila).
+    // Darmowe wiadomości AI na start, raz na konto Telegrama.
     "FREE_MESSAGES": "10",
     // Bezpiecznik kosztów: łączna liczba darmowych wiadomości AI na dobę, w bocie i na stronie.
     "DAILY_FREE_LIMIT": "1000",
     "SITE_DAILY_LIMIT": "1500",
     "DEFAULT_TZ": "Europe/Warsaw",
-    "MAIL_FROM_NAME": "Otto",
     // Dokąd prowadzi przycisk „Bot dla firmy”.
     "COMPANY_URL": "https://designhouse.me/automatyzacje"
   },

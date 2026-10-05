@@ -1,8 +1,8 @@
 /**
  * Jeden Otto = jeden obiekt na jedną rozmowę prywatną.
  *
- * Trzymamy tylko: numer czatu, strefę, licznik darmowych wiadomości, zaszyfrowany klucz,
- * numer przypiętej listy i przypomnienia jako (numer wiadomości, godzina).
+ * Trzymamy tylko: numer czatu, strefę, licznik darmowych wiadomości (10 na start, raz na konto),
+ * zaszyfrowany klucz, numer przypiętej listy i przypomnienia jako (numer wiadomości, godzina).
  * Treść wiadomości zostaje w Telegramie: przypominając, Otto odpowiada na oryginał.
  *
  * Aktualizacje przetwarzamy po kolei (kolejka w pamięci), bo między wywołaniami
@@ -11,14 +11,13 @@
 
 import { DurableObject } from "cloudflare:workers";
 import { AiError, KEY_PATTERN, PROVIDER_NAMES, checkKey, completeJson, defaultModel, detectProvider, type Provider } from "./ai";
-import { peppered, seal, sixDigits, unseal } from "./crypto";
-import { sendCodeMail } from "./mail";
+import { peppered, seal, unseal } from "./crypto";
 import { botSystem, toBotPlan } from "./prompts";
 import type { BudgetKind } from "./registry";
 import { MAX_TASKS, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
-import { T, mask } from "./texts";
-import { DAY, HOUR, MINUTE, eveningLabel, formatShort, formatWhen, isValidTz, localIsoToUtc, parseWhen, presetAt } from "./time";
+import { T } from "./texts";
+import { DAY, eveningLabel, formatShort, formatWhen, isValidTz, localIsoToUtc, parseWhen, presetAt } from "./time";
 
 interface State {
   chatId: number;
@@ -27,15 +26,11 @@ interface State {
   freeLeft: number;
   claimed: boolean;
   key?: { provider: Provider; sealed: string; model?: string };
-  awaiting?: "email" | "code" | "key";
-  /** Mail w trakcie potwierdzania. Jawny adres tylko do wysłania kodu i do pytania o zgodę, potem znika. */
-  mail?: { email: string; hash: string; code?: string; expires?: number; attempts?: number; at: number };
-  mailSends: number[];
+  awaiting?: "key";
   listId?: number;
   manualCount: number;
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MOOD_ORDER = ["neutral", "happy", "look", "wink", "wow", "think"] as const;
 type Mood = (typeof MOOD_ORDER)[number];
 
@@ -84,7 +79,6 @@ export class Chat extends DurableObject<Env> {
         lastUpdate: 0,
         freeLeft: 0,
         claimed: false,
-        mailSends: [],
         manualCount: 0,
       }
     );
@@ -100,9 +94,12 @@ export class Chat extends DurableObject<Env> {
     if (update.update_id <= s.lastUpdate) return; // Telegram ponowił dostarczenie
     s.lastUpdate = update.update_id;
     s.chatId = chatId;
-    // Niedokończone potwierdzanie maila nie leży w nieskończoność.
-    if (s.mail && Date.now() - s.mail.at > DAY) s.mail = undefined;
     this.wiped = false;
+    // Darmowe wiadomości AI: każde konto dostaje je przy pierwszym kontakcie, raz (także po /zapomnij).
+    if (!s.claimed) {
+      s.claimed = true;
+      s.freeLeft = (await this.registry().claimChat(await this.chatHash(s))) ? this.freeMessages() : 0;
+    }
 
     try {
       if (message) await this.onMessage(s, message);
@@ -129,11 +126,8 @@ export class Chat extends DurableObject<Env> {
     }
 
     if (text.startsWith("/")) return this.command(s, msg, text);
-    if (s.awaiting === "email" && text.includes("@")) return this.gotEmail(s, msg, text);
-    if (s.awaiting === "code" && /^[\d\s-]{4,12}$/.test(text)) return this.gotCode(s, text);
-    // Ktoś napisał coś innego niż mail albo klucz: wracamy do zwykłej rozmowy.
-    // Na kod czekamy dalej, bo przychodzi z opóźnieniem i działa 15 minut.
-    if (s.awaiting === "email" || s.awaiting === "key") s.awaiting = undefined;
+    // Ktoś napisał coś innego niż klucz: wracamy do zwykłej rozmowy.
+    if (s.awaiting === "key") s.awaiting = undefined;
 
     if (text && s.key) return this.ai(s, msg, text, "own");
     if (text && s.freeLeft > 0) return this.ai(s, msg, text, "free");
@@ -164,13 +158,10 @@ export class Chat extends DurableObject<Env> {
         return this.keyCommand(s, arg);
       case "model":
         return this.modelCommand(s, arg);
-      case "pakiet":
-        return this.packCommand(s);
       case "strefa":
         return this.tzCommand(s, arg);
       case "anuluj":
         s.awaiting = undefined;
-        if (s.mail?.code) s.mail = undefined;
         return this.say(s, T.cancelled);
       case "zapomnij":
         return this.say(s, T.forgetAsk, {
@@ -183,11 +174,8 @@ export class Chat extends DurableObject<Env> {
 
   private async start(s: State) {
     await this.sticker(s, "happy");
-    const free = this.freeMessages();
-    const rows: Button[][] = [];
-    if (!s.claimed && this.env.GEMINI_API_KEY) rows.push([{ text: T.btnPack(free), callback_data: "pack" }]);
-    rows.push([{ text: T.btnKey, callback_data: "key" }, { text: T.btnHow, callback_data: "help" }]);
-    const line = s.key || s.freeLeft > 0 ? T.welcomeAi : !s.claimed && this.env.GEMINI_API_KEY ? T.welcomeOffer(free) : T.welcomeManual;
+    const rows: Button[][] = [[{ text: T.btnKey, callback_data: "key" }, { text: T.btnHow, callback_data: "help" }]];
+    const line = s.key ? T.welcomeKey : s.freeLeft > 0 && this.env.GEMINI_API_KEY ? T.welcomeFree(s.freeLeft) : T.welcomeManual;
     return this.say(s, T.welcome(line), { reply_markup: { inline_keyboard: rows } });
   }
 
@@ -196,7 +184,7 @@ export class Chat extends DurableObject<Env> {
       ? `Klucz: ${PROVIDER_NAMES[s.key.provider]}, bez limitu.`
       : s.freeLeft > 0
         ? `Darmowe wiadomości AI: ${s.freeLeft}.`
-        : "AI: wyłączone, działają przyciski.";
+        : T.freeUsedStatus;
     return this.say(s, T.help(`${status} Strefa: ${s.tz}.`));
   }
 
@@ -211,9 +199,8 @@ export class Chat extends DurableObject<Env> {
 
     // Raz na jakiś czas przypominamy, że można więcej. Bez nachalności.
     s.manualCount += 1;
-    if (s.manualCount === 1 || s.manualCount % 8 === 0) {
-      if (!s.claimed && this.env.GEMINI_API_KEY) rows.push([{ text: T.btnPack(this.freeMessages()), callback_data: "pack" }]);
-      else if (!s.key) rows.push([{ text: T.btnKey, callback_data: "key" }, { text: T.btnCompany, url: this.env.COMPANY_URL }]);
+    if ((s.manualCount === 1 || s.manualCount % 8 === 0) && !s.key) {
+      rows.push([{ text: T.btnKey, callback_data: "key" }, { text: T.btnCompany, url: this.env.COMPANY_URL }]);
     }
 
     const lead = intro ?? (parsed ? T.manualParsed : text ? T.manualAsk : T.manualNoText);
@@ -524,21 +511,12 @@ export class Chat extends DurableObject<Env> {
         toast = "Usunięte";
         break;
       }
-      case "pack":
-        await this.packCommand(s);
-        break;
       case "key":
         await this.keyCommand(s, "");
         break;
       case "help":
         await this.help(s);
         break;
-      case "consent": {
-        if (s.mail && a === "1") await this.registry().addContact(s.mail.email, await this.chatHash(s));
-        s.mail = undefined;
-        if (message) await this.edit(s, message.message_id, a === "1" ? T.consentYes : T.consentNo);
-        break;
-      }
       case "tz": {
         const tz = [a, b].filter(Boolean).join(":");
         if (isValidTz(tz)) {
@@ -557,85 +535,12 @@ export class Chat extends DurableObject<Env> {
     await this.tg.call("answerCallbackQuery", { callback_query_id: q.id, ...(toast ? { text: toast } : {}) }).catch(() => {});
   }
 
-  // ---- darmowy pakiet za maila ----
+
+
+  // ---- darmowe wiadomości ----
 
   private freeMessages() {
     return Number(this.env.FREE_MESSAGES) || 10;
-  }
-
-  private async packCommand(s: State) {
-    if (s.claimed) {
-      if (s.freeLeft > 0) return this.say(s, T.packLeft(s.freeLeft));
-      return this.say(s, T.packUsed, {
-        reply_markup: { inline_keyboard: [[{ text: T.btnKey, callback_data: "key" }, { text: T.btnCompany, url: this.env.COMPANY_URL }]] },
-      });
-    }
-    if (!this.env.GEMINI_API_KEY) return this.say(s, T.packOff);
-    s.awaiting = "email";
-    return this.say(s, T.askEmail);
-  }
-
-  private async gotEmail(s: State, msg: Message, text: string) {
-    // Mail nie zostaje w historii czatu.
-    await this.tg.call("deleteMessage", { chat_id: s.chatId, message_id: msg.message_id }).catch(() => {});
-    const email = text.toLowerCase();
-    if (!EMAIL.test(email) || email.length > 254) return this.say(s, T.badEmail);
-
-    const now = Date.now();
-    s.mailSends = s.mailSends.filter((t) => t > now - HOUR);
-    if (s.mailSends.length >= 3) {
-      s.awaiting = undefined;
-      return this.say(s, T.tooManyCodes);
-    }
-    const hash = await peppered(`mail:${email}`, this.env);
-    if (await this.registry().isEmailClaimed(hash)) {
-      s.awaiting = undefined;
-      return this.say(s, T.emailUsed);
-    }
-
-    const code = sixDigits();
-    try {
-      await sendCodeMail(this.env, email, code, this.origin);
-    } catch (error) {
-      console.error("mail failed", error instanceof Error ? error.message : "unknown");
-      s.awaiting = undefined;
-      return this.say(s, T.mailFailed);
-    }
-    s.mailSends.push(now);
-    s.mail = { email, hash, code: await peppered(`code:${hash}:${code}`, this.env), expires: now + 15 * MINUTE, attempts: 0, at: now };
-    s.awaiting = "code";
-    return this.say(s, T.codeSent(mask(email)));
-  }
-
-  private async gotCode(s: State, text: string) {
-    const code = text.replace(/\s/g, "");
-    if (!/^\d{6}$/.test(code)) return this.say(s, T.codeFormat);
-    const mail = s.mail;
-    if (!mail?.code || !mail.expires || mail.expires < Date.now() || (mail.attempts ?? 0) >= 5) {
-      s.awaiting = undefined;
-      s.mail = undefined;
-      return this.say(s, T.codeExpired);
-    }
-    if ((await peppered(`code:${mail.hash}:${code}`, this.env)) !== mail.code) {
-      mail.attempts = (mail.attempts ?? 0) + 1;
-      return this.say(s, T.codeWrong(5 - mail.attempts));
-    }
-
-    s.awaiting = undefined;
-    const result = await this.registry().claim(mail.hash, await this.chatHash(s));
-    if (result !== "ok") {
-      s.mail = undefined;
-      return this.say(s, result === "email" ? T.emailUsed : T.chatUsed);
-    }
-    s.claimed = true;
-    s.freeLeft = this.freeMessages();
-    // Zostaje tylko adres do pytania o zgodę. Bez zgody znika po kliknięciu „Nie” albo po dobie.
-    s.mail = { email: mail.email, hash: mail.hash, at: Date.now() };
-    await this.sticker(s, "wow");
-    await this.say(s, T.packReady(s.freeLeft));
-    return this.say(s, T.consentAsk, {
-      reply_markup: { inline_keyboard: [[{ text: "Tak, mogą", callback_data: "consent:1" }, { text: "Nie, dzięki", callback_data: "consent:0" }]] },
-    });
   }
 
   // ---- własny klucz ----
@@ -690,7 +595,6 @@ export class Chat extends DurableObject<Env> {
   }
 
   private async forget(s: State, message?: Message) {
-    await this.registry().forgetChat(await this.chatHash(s));
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
     this.schema();

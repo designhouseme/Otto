@@ -1,5 +1,5 @@
 // Otto jako SVG: sama kula z dwiema kapsułami oczu (siatka 120 × 120, geometria jak na designhouse.me).
-// Wspólne dla skryptu grafik (naklejki, avatar, mail) i dla strony (public/assets/otto.js ma kopię MOODS).
+// Wspólne dla skryptu grafik (naklejki, avatar, ikony) i dla strony (public/assets/otto.js ma kopię MOODS).
 
 export const MOODS = {
   neutral: [
