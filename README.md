@@ -75,15 +75,14 @@ curl -X POST https://TWOJ-ADRES/admin/setup -H "Authorization: Bearer ADMIN_TOKE
 
 `/admin/setup` ustawia webhook, komendy, opisy i zdjęcie profilowe bota. Naklejki z sześcioma minami Otta zakłada `POST /admin/stickers`, a do tego potrzeba `STICKER_OWNER_ID`, czyli numeru konta Telegram właściciela zestawu. Maile osób, które zgodziły się na kontakt, zwraca `GET /admin/contacts` (CSV).
 
-Ustawienia bez tajemnic (model Gemini, liczba darmowych wiadomości, dzienne bezpieczniki kosztów, strefa domyślna) są w `wrangler.jsonc`.
+Ustawienia bez tajemnic (model Gemini, liczba darmowych wiadomości, dzienne bezpieczniki kosztów, strefa domyślna) są w `wrangler.jsonc`. Tam jest też własna domena (`routes`): u siebie wpisz swoją, ze strefy na tym samym koncie Cloudflare, albo usuń wpis, a Otto będzie działał pod adresem `workers.dev`.
 
 ### Przed startem
 
 1. **`KEY_SECRET` i `HASH_PEPPER` ustaw raz.** Zmiana `KEY_SECRET` unieważnia zapisane klucze użytkowników, a zmiana `HASH_PEPPER` zeruje pamięć o odebranych pakietach.
 2. **Maile:** zweryfikuj domenę nadawcy w Resend (SPF, DKIM) i sprawdź na Gmailu i Outlooku, że kod dochodzi i nie trafia do spamu. Bez tego `/pakiet` nie zadziała.
 3. **Polityka prywatności:** strona ma sekcję „Co Otto o Tobie wie”, ale publiczny bot potrzebuje też pełnej polityki (administrator danych, podstawa prawna, okresy przechowywania).
-4. **Własna domena** w Cloudflare zamiast adresu `workers.dev`.
-5. **Koszty:** `DAILY_FREE_LIMIT` i `SITE_DAILY_LIMIT` to dzienne bezpieczniki darmowych wiadomości w bocie i na stronie.
+4. **Koszty:** `DAILY_FREE_LIMIT` i `SITE_DAILY_LIMIT` to dzienne bezpieczniki darmowych wiadomości w bocie i na stronie.
 
 ## Rozwój
 

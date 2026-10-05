@@ -15,6 +15,10 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
 
+  // Własna domena tej instancji (strefa musi być na tym samym koncie Cloudflare).
+  // U siebie wpisz swoją albo usuń ten wpis: wtedy Otto działa pod adresem workers.dev.
+  "routes": [{ "pattern": "otto.designhouse.me", "custom_domain": true }],
+
   "assets": {
     "binding": "ASSETS",
     "directory": "./public",
