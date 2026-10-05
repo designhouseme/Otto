@@ -1,3 +1,10 @@
+<p align="center">
+  <a href="https://designhouse.me"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/design-house-white.svg">
+    <img src="public/img/design-house.svg" height="30" alt="Design House">
+  </picture></a>
+</p>
+
 <h1 align="center">Otto</h1>
 
 <p align="center"><b>Osobisty asystent w Telegramie.</b> Przypomina o czasie, trzyma listę zadań i rozmawia jak znajomy.</p>
@@ -5,11 +12,11 @@
 <p align="center">
   <a href="https://t.me/HiOttoBot"><img src="docs/readme/btn-telegram.png" height="56" alt="Napisz do Otta w Telegramie"></a>
   &nbsp;
-  <a href="https://otto.designhouse.me"><img src="docs/readme/btn-site.png" height="56" alt="Zobacz stronę i rzuć Ottem"></a>
+  <a href="https://otto.designhouse.me"><img src="docs/readme/btn-site.png" height="56" alt="Zobacz stronę Otta"></a>
 </p>
 
 <p align="center">
-  <img src="docs/film.webp" width="100%" alt="Film o Ottcie: łapie rzuconą wiadomość, przypomina o fakturze następnego dnia, zamienia komendy w godziny, prowadzi listę, a na końcu dwa „O” z jego imienia stają się jego oczami">
+  <img src="docs/film.webp" width="100%" alt="Film o Ottcie: piszesz do niego w Telegramie, Otto łapie wiadomość, przypomina o fakturze następnego dnia, zamienia komendy w godziny, prowadzi listę, a na końcu dwa „O” z jego imienia stają się jego oczami">
 </p>
 
 ## Cześć, jestem Otto
@@ -175,5 +182,8 @@ Ustawienia bez tajemnic (model Gemini i zapasowy, liczba darmowych wiadomości, 
 Kod: [Apache-2.0](LICENSE). Elementy cudze i wyjątki są w [NOTICE](NOTICE): font Urbanist (SIL OFL 1.1), Motion (MIT), generator kodów QR (MIT), logo Telegrama. Postać Otta oraz nazwa i znak Design House nie są objęte licencją.
 
 <p align="center">
-  <a href="https://designhouse.me"><img src="public/img/design-house.svg" height="22" alt="Design House"></a>
+  <a href="https://designhouse.me"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/design-house-white.svg">
+    <img src="public/img/design-house.svg" height="22" alt="Design House">
+  </picture></a>
 </p>
