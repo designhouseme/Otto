@@ -1,0 +1,27 @@
+# Skopiuj do .dev.vars (plik jest w .gitignore). Na produkcji te same nazwy ustawiasz przez
+#   npx wrangler secret put NAZWA
+
+# 1 = nic nie wychodzi do Telegrama ani na maila: wywołania lądują w konsoli `wrangler dev`.
+DEV_DRY_RUN=1
+
+# Telegram: token od @BotFather, nazwa bota bez @ i dowolny długi ciąg do podpisu webhooka.
+TELEGRAM_BOT_TOKEN=
+BOT_USERNAME=
+TELEGRAM_WEBHOOK_SECRET=
+
+# Klucz Gemini na darmowe wiadomości i rozmowę na stronie (Google AI Studio).
+GEMINI_API_KEY=
+
+# Szyfrowanie kluczy użytkowników i hashowanie maili. Długie, losowe, raz ustawione.
+KEY_SECRET=
+HASH_PEPPER=
+
+# Maile z kodem (Resend). Domena nadawcy musi być zweryfikowana w Resend.
+RESEND_API_KEY=
+MAIL_FROM=
+
+# Polecenia /admin/* (nagłówek Authorization: Bearer ...).
+ADMIN_TOKEN=
+
+# Opcjonalnie: numer konta Telegram właściciela zestawu naklejek Otto.
+STICKER_OWNER_ID=
