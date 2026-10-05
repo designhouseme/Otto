@@ -8,7 +8,8 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const Motion = window.Motion;
-const COMPANY_URL = "https://designhouse.me/automatyzacje";
+const CONTACT_URL = "https://designhouse.me/kontakt";
+const GITHUB_URL = "https://github.com/Arkazzae/otto-bot";
 const telegramUrl = new URL("/telegram", location.href).href;
 
 // ---------- Otto ----------
@@ -142,13 +143,11 @@ for (const link of $$("[data-copy]")) {
 const demo = $("[data-demo]");
 if (demo && !reduce && Motion?.inView) {
   const steps = $$("[data-step]", demo);
-  const pressed = $("[data-press]", demo);
-  const edited = $("[data-edit]", demo);
   for (const step of steps) step.style.opacity = "0";
   Motion.inView(
     demo,
     () => {
-      const at = [0, 0.4, 1.3, 3.6, 4.2];
+      const at = [0, 0.4, 1.6, 3.2, 3.8];
       steps.forEach((step, i) => {
         Motion.animate(
           step,
@@ -156,15 +155,6 @@ if (demo && !reduce && Motion?.inView) {
           { type: "spring", bounce: 0.3, duration: 0.55, delay: at[i] ?? i },
         );
       });
-      // Kliknięcie „Jutro o 9:00”, a bot edytuje swoją wiadomość i zdejmuje przyciski.
-      setTimeout(() => pressed?.classList.add("is-pressed"), 2400);
-      setTimeout(() => {
-        if (!edited) return;
-        $(".tg-text", edited).textContent = edited.dataset.edit;
-        $(".tg-meta", edited).textContent = "edytowano 18:24";
-        const keyboard = edited.nextElementSibling;
-        if (keyboard) Motion.animate(keyboard, { opacity: [1, 0], height: [`${keyboard.offsetHeight}px`, "0px"] }, { duration: 0.35 });
-      }, 2900);
     },
     { amount: 0.4 },
   );
@@ -227,12 +217,12 @@ const ANSWERS = {
   },
   umiesz: {
     mood: "think",
-    text: "Przypominam o czymkolwiek w wybranej chwili i trzymam Twoją listę zadań przypiętą w czacie. Rozumiem „jutro o 9” czy „za 2 h”, a z AI także zwykłe zdania.",
+    text: "Rozmawiam jak znajomy: piszesz zwykłymi zdaniami, a ja ustawiam przypomnienia i prowadzę Twoją listę przypiętą w czacie. Na start masz 10 wiadomości AI, a komendy działają zawsze.",
     action: "jak",
   },
   koszt: {
     mood: "happy",
-    text: "Przypomnienia, lista i przyciski są za darmo, zawsze. Na start dostajesz 10 wiadomości AI, bez maila i rejestracji, a bez limitu działam z własnym kluczem, na przykład darmowym od Google.",
+    text: "Zawsze będę za darmo: komendy, przypomnienia i lista. Na start dostajesz 10 wiadomości AI, bez maila. Bez limitu działam z własnym kluczem albo w abonamencie Design House, wtedy bez żadnej konfiguracji.",
     action: "cennik",
   },
   dane: {
@@ -247,8 +237,13 @@ const ANSWERS = {
   },
   firma: {
     mood: "wow",
-    text: "Ja jestem osobisty, jeden na osobę. Dla całego zespołu, z projektami i integracjami, bota robi Design House.",
+    text: "Abonament z wiadomościami bez limitu i bez konfiguracji oferuje Design House, tak samo jak boty dla całych zespołów. Napisz do nich, opowiedzą o szczegółach.",
     action: "firma",
+  },
+  kod: {
+    mood: "wink",
+    text: "Mój kod jest otwarty, na GitHubie. Możesz zajrzeć, jak działam, a nawet postawić własnego Otta.",
+    action: "github",
   },
   nie_wiem: {
     mood: "think",
@@ -264,9 +259,10 @@ const ANSWERS = {
 // Rdzenie słów, bo po polsku „dane” to też „danych”, „danymi”, „danych osobowych”.
 const MATCHERS = [
   ["klucz", /klucz|\bapi\b|gemini|openai|anthropic|openrouter|chatgpt|\bgpt/],
-  ["firma", /firm|zespol|team|biznes|pracowni|integrac|sprzedaz/],
+  ["kod", /\bkod|github|open ?source|zrodl|repozytor/],
+  ["firma", /firm|zespol|team|biznes|pracowni|integrac|sprzedaz|abonament|subskryp/],
   ["dane", /\bdan(e|ych|ymi|ym)\b|prywat|bezpiecz|rodo|zapisuj|przechow|wiesz o mnie|szyfr|wyciek|usun/],
-  ["koszt", /koszt|\bcen|plac|darmo|\bfree\b|ile to|ile kosztuj|abonament|limit|subskryp/],
+  ["koszt", /koszt|\bcen|plac|darmo|\bfree\b|ile to|ile kosztuj|limit/],
   ["jak", /doda|zapros|instal|zaczac|\bstart|wlacz|uruchom|telegram|pobrac|gdzie cie/],
   ["umiesz", /umiesz|potrafisz|funkc|co robisz|przypom|\blist|zadan|kim jestes|co to|do czego/],
   ["hej", /^(czesc|hej|siema|witaj|dzien dobry|hello|hi|elo)\b/],
@@ -369,7 +365,10 @@ function renderAction(action) {
       jump("Pokaż szczegóły", "prywatnosc");
       break;
     case "firma":
-      link("Bot dla firmy", COMPANY_URL);
+      link("Napisz do Design House", CONTACT_URL);
+      break;
+    case "github":
+      link("Kod na GitHubie", GITHUB_URL);
       break;
     default:
       return null;

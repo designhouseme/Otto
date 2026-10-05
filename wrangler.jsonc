@@ -46,8 +46,8 @@
     "DAILY_FREE_LIMIT": "1000",
     "SITE_DAILY_LIMIT": "1500",
     "DEFAULT_TZ": "Europe/Warsaw",
-    // Dokąd prowadzi przycisk „Bot dla firmy”.
-    "COMPANY_URL": "https://designhouse.me/automatyzacje"
+    // Dokąd prowadzi przycisk „Abonament: napisz do nas” (wiadomości bez limitu, bez konfiguracji).
+    "CONTACT_URL": "https://designhouse.me/kontakt"
   },
 
   "observability": { "enabled": true }

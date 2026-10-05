@@ -77,16 +77,18 @@ const lastSentId = (out) => {
 }
 
 // --- rozmowa ---
-// Testowy klucz Gemini nie działa, więc każda wiadomość AI kończy się przyciskami, a licznik wraca.
-await step("/start: 10 wiadomości AI na start", message("/start"), [/sendMessage.*Cześć, jestem Otto/, /Na start masz 10 wiadomości AI/]);
+// Testowy klucz Gemini nie działa, więc każda wiadomość AI kończy się zwykłą odpowiedzią „nie dogadałem się”, a licznik wraca.
+await step("/start proponuje personalizację", message("/start"), [/sendMessage.*Cześć, jestem Otto/, /Zanim zaczniemy/, /"p:go"/, /"p:skip"/]);
+await step("personalizacja: imię", callback("p:go", { message_id: 1, text: "Zanim zaczniemy" }), [/Jak mam się do Ciebie zwracać/]);
+await step("imię → pytanie o ton", message("Ola"), [/Jak mam pisać\?/, /"p:tone:casual"/]);
+await step("ton → do czego", callback("p:tone:casual", { message_id: 2, text: "Jak mam pisać?" }), [/Jak mam pisać\? Luźno, z emoji/, /Do czego głównie mnie użyjesz/]);
+await step("do czego → strefa", callback("p:use:praca", { message_id: 3, text: "Do czego głównie mnie użyjesz?" }), [/Gdzie jesteś/, /"p:tz:Europe\/Warsaw"/]);
+await step("strefa → gotowe", callback("p:tz:Europe/Warsaw", { message_id: 4, text: "Gdzie jesteś?" }), [/Gotowe, Ola! Masz 10 wiadomości AI/, /\/ustawienia/]);
 await step("/pomoc pokazuje licznik", message("/pomoc"), [/Darmowe wiadomości AI: 10/]);
-await step("AI nie działa → przyciski", message("kupić mleko"), [/Nie dogadałem się teraz z modelem/, /"l:\d+"/]);
+await step("AI nie działa → zwykła odpowiedź, bez cytatu", message("kupić mleko"), [/Nie dogadałem się teraz z modelem/, /^(?![\s\S]*reply_parameters)/]);
 
-let out = await step("dopisz do listy (przycisk)", callback(`l:${userMsgId - 1}`, { message_id: 1, reply_to_message: { message_id: userMsgId - 1, date: 0, chat: { id: CHAT, type: "private" }, text: "kupić mleko" } }), [
-  /sendMessage.*Twoja lista.*1\. kupić mleko/,
-  /pinChatMessage/,
-]);
-const listId = Number(out.match(/sendMessage[^\n]*Twoja lista/) && [...out.matchAll(new RegExp(`pinChatMessage \\{"chat_id":${CHAT},"message_id":(\\d+)`, "g"))].at(-1)?.[1]);
+let out = await step("/dodaj zakłada listę i ją przypina", message("/dodaj kupić mleko"), [/sendMessage.*Twoja lista.*1\. kupić mleko/, /pinChatMessage/]);
+const listId = Number([...out.matchAll(new RegExp(`pinChatMessage \\{"chat_id":${CHAT},"message_id":(\\d+)`, "g"))].at(-1)?.[1]);
 
 await step("/dodaj czyta przypiętą listę i ją edytuje", message("/dodaj chleb, masło"), [/getChat/, /editMessageText.*1\. kupić mleko\\n2\. chleb\\n3\. masło/, /setMessageReaction/]);
 
@@ -99,9 +101,9 @@ if (shortHash && listId) {
   );
 }
 
-await step("termin z wiadomości jako przycisk", message("jutro o 9 faktura"), [/⏰ Jutro o 9:00/]);
+await step("/przypomnij bez niczego podpowiada", message("/przypomnij"), [/Napisz, kiedy i o czym/]);
 const soon = Math.floor(Date.now() / 1000) + 33;
-await step("przypomnienie za ~33 s", callback(`r:${userMsgId - 1}:a${soon}`, { message_id: 2 }), [/Przypomnę dziś o/]);
+await step("przypomnienie z przycisku za ~33 s", callback(`r:${userMsgId - 1}:a${soon}`, { message_id: 2 }), [/Przypomnę dziś o/]);
 await step("/przypomnienia", message("/przypomnienia"), [/Zaplanowane przypomnienia/, /callback_data":"x:\d+"/]);
 
 await step("licznik wrócił po nieudanych próbach AI", message("/pomoc"), [/Darmowe wiadomości AI: 10/]);
@@ -131,6 +133,9 @@ await step("admin sam sobie, bez zakleszczenia", message(`/vip ${ADMIN_CHAT}`, {
 await step("/zapomnij", message("/zapomnij"), [/Usunę wszystko/]);
 await step("potwierdzenie", callback("wipe", { message_id: 4 }), [/nic już o Tobie nie wiem/]);
 await step("po /zapomnij darmowe wiadomości się nie odnawiają", message("/pomoc"), [/Darmowe wiadomości AI wykorzystane/]);
+await step("tryb komend: termin → gotowa komenda do skopiowania", message("jutro o 9 faktura"), [/Wygląda na przypomnienie jutro o 9:00/, /copy_text":\{"text":"\/przypomnij jutro o 9 faktura"/]);
+await step("tryb komend: zwykły tekst → podpowiedź i trzy drogi", message("cześć Otto"), [/Teraz działam na komendach/, /Abonament: napisz do nas/, /designhouse\.me\/kontakt/]);
+await step("tryb komend: zdjęcie → jak przypomnieć", message(undefined), [/odpowiedz na nią komendą/]);
 await step("admin: cofnięcie VIP-a samemu sobie", message(`/unvip ${ADMIN_CHAT}`, {}, ADMIN_CHAT), [/VIP cofnięty/]);
 
 // Po /zapomnij obiekt żyje dalej: przypomnienie musi się dać ustawić od razu.

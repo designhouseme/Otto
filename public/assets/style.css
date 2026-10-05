@@ -280,6 +280,8 @@ h1 { display: grid; gap: 14px; }
 @media (min-width: 720px) { .plan-list img { width: 96px; height: 96px; } }
 .plan-list p { color: var(--muted); max-width: 58ch; margin-top: 4px; }
 .plan-company .text-link { display: inline-block; margin-top: 10px; }
+.open-source { margin-top: 28px; font-weight: 600; color: var(--muted); }
+.tg-line { display: block; margin-top: 6px; }
 
 /* ---------- Prywatność ---------- */
 

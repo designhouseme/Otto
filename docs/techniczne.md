@@ -25,7 +25,9 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 
 1. Telegram wysyła aktualizację na `/tg/webhook` z nagłówkiem `X-Telegram-Bot-Api-Secret-Token`. Worker sprawdza podpis, odrzuca czaty inne niż prywatne i odpowiada od razu `200`.
 2. Resztę robi obiekt `Chat` dla tego czatu (w `waitUntil`, czyli do 30 s po odpowiedzi). Aktualizacje jednej osoby idą po kolei (kolejka w pamięci obiektu), a powtórki Telegrama odrzuca numer `update_id`.
-3. Kolejność decyzji: wiadomość z kluczem API (kasujemy ją przed czymkolwiek innym) → komenda → AI (własny klucz albo darmowa pula) → tryb ręczny z przyciskami.
+3. Kolejność decyzji: wiadomość z kluczem API (kasujemy ją przed czymkolwiek innym) → komenda → imię z personalizacji → AI (własny klucz, VIP albo darmowe wiadomości) → tryb komend. Otto odpowiada zwykłymi wiadomościami; jedyna odpowiedź „na wiadomość” to samo przypomnienie (i przyciski terminu po `/przypomnij` w odpowiedzi na wiadomość).
+4. Pierwsze `/start` proponuje personalizację: imię albo ksywka, ton (krótko albo luźno), do czego Otto ma służyć, strefa czasowa. Każdy krok można pominąć, a `/ustawienia` zaczyna od nowa. Model dostaje to w instrukcji.
+5. Bez AI (po 10 darmowych, bez klucza i VIP-a) zwykły tekst dostaje krótką podpowiedź z komendą. Jeśli w tekście jest termin, przycisk „Skopiuj komendę” podsuwa gotowe `/przypomnij …`. Po ostatniej darmowej wiadomości Otto pisze o trzech drogach: komendy, własny klucz, abonament (`CONTACT_URL`). (własny klucz albo darmowa pula) → tryb ręczny z przyciskami.
 
 ## Dane
 
@@ -37,7 +39,8 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 | `freeLeft`, `claimed` | darmowe wiadomości AI (przy pierwszym kontakcie `FREE_MESSAGES`, jeśli rejestr nie zna jeszcze tego konta) |
 | `key` | `{ provider, sealed, model }`; `sealed` to AES-GCM z `KEY_SECRET`, z numerem czatu jako danymi powiązanymi |
 | `vip` | AI bez limitu na kluczu serwera, nadane przez admina (`/vip NUMER`) |
-| `awaiting` | czekamy na klucz po `/klucz` |
+| `profile`, `onboarded` | personalizacja (imię albo ksywka, ton, do czego służy Otto), tylko jeśli ktoś ją poda |
+| `awaiting` | czekamy na klucz po `/klucz` albo na imię w personalizacji |
 | `listId` | numer przypiętej wiadomości z listą |
 
 Tabela `reminders (id, msg_id, at)`: tylko numer wiadomości i godzina. Obiekt ma jeden alarm, zawsze ustawiony na najbliższe przypomnienie. Po wysłaniu wiersz znika.

@@ -19,7 +19,9 @@
 
 ## Cześć, jestem Otto
 
-Jestem czarną kulką z dwoma oczami (to te dwa „O” w moim imieniu) i mieszkam w Telegramie. Piszesz do mnie jak do znajomego, na przykład „jutro o 9 faktura dla Kowalskiego”, a ja jutro o 9:00 odpowiadam na tę wiadomość. Prowadzę też Twoją listę zadań, przypiętą u góry czatu.
+Jestem czarną kulką z dwoma oczami (to te dwa „O” w moim imieniu) i mieszkam w Telegramie. Piszesz do mnie jak do znajomego, na przykład „jutro o 9 przypomnij mi o fakturze”, a ja odpisuję jak znajomy i jutro o 9:00 przypominam, odpowiadając na Twoją wiadomość. Prowadzę też Twoją listę zadań, przypiętą u góry czatu. Na początku pytam, jak mam się do Ciebie zwracać i jak pisać (możesz pominąć).
+
+Zawsze będę za darmo, a mój kod jest otwarty: patrzysz właśnie na niego.
 
 Nie zapisuję, co piszesz. Przypomnienie to dla mnie numer wiadomości i godzina, a lista to wiadomość w Twoim Telegramie. Każdy ma swojego Otta: nie jestem botem do grup.
 
@@ -34,11 +36,11 @@ Nie zapisuję, co piszesz. Przypomnienie to dla mnie numer wiadomości i godzina
 <table>
   <tr>
     <td width="96"><img src="public/img/stamp-budzik.webp" width="88" alt=""></td>
-    <td><b>Przypominam o każdej wiadomości.</b> Także o zdjęciu paragonu albo głosówce. Klikasz „Za godzinę” albo „Jutro 9:00”, a gdy przyjdzie pora, mam drzemkę „+15 min” i „Zrobione”.</td>
+    <td><b>Przypominam o każdej wiadomości.</b> Także o zdjęciu paragonu albo głosówce: odpowiedz na nią <code>/przypomnij jutro o 9</code>. Gdy przyjdzie pora, mam drzemkę „+15 min” i „Zrobione”.</td>
   </tr>
   <tr>
     <td><img src="public/img/stamp-kalendarz.webp" width="88" alt=""></td>
-    <td><b>Rozumiem terminy bez żadnego AI.</b> „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”, „jutro wieczorem”. Także zmianę czasu w październiku.</td>
+    <td><b>Komendy rozumieją terminy bez żadnego AI.</b> <code>/przypomnij jutro o 9 faktura</code>, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”, „jutro wieczorem”. Także zmianę czasu w październiku.</td>
   </tr>
   <tr>
     <td><img src="public/img/stamp-lista.webp" width="88" alt=""></td>
@@ -46,7 +48,7 @@ Nie zapisuję, co piszesz. Przypomnienie to dla mnie numer wiadomości i godzina
   </tr>
   <tr>
     <td><img src="public/img/stamp-samolot.webp" width="88" alt=""></td>
-    <td><b>Na start rozumiem zwykłe zdania.</b> Każde konto dostaje ode mnie 10 wiadomości AI, bez maila i rejestracji: „po pracy przypomnij mi o oponach” i już.</td>
+    <td><b>Rozmawiam jak znajomy.</b> Każde konto dostaje ode mnie 10 wiadomości AI na start, bez maila i rejestracji: „po pracy przypomnij mi o oponach” i już. Potem działam na komendach, zawsze za darmo.</td>
   </tr>
   <tr>
     <td><img src="public/img/stamp-klucz.webp" width="88" alt=""></td>
@@ -58,10 +60,10 @@ Nie zapisuję, co piszesz. Przypomnienie to dla mnie numer wiadomości i godzina
 
 | Poziom | Co daje |
 |---|---|
-| <img src="public/img/stamp-prezent.webp" width="56" alt=""> **0 zł, zawsze** | przypomnienia, lista, przyciski i terminy typu „jutro o 9”, bez limitu |
+| <img src="public/img/stamp-prezent.webp" width="56" alt=""> **Zawsze za darmo** | przypomnienia, lista i komendy typu `/przypomnij jutro o 9`, bez limitu |
 | <img src="public/img/stamp-samolot.webp" width="56" alt=""> **10 wiadomości AI na start** | raz na konto Telegrama, bez maila i rejestracji |
 | <img src="public/img/stamp-klucz.webp" width="56" alt=""> **Własny klucz** | AI bez limitu; za użycie płacisz dostawcy klucza, nie nam |
-| <img src="public/img/stamp-firma.webp" width="56" alt=""> **Bot dla firmy** | wspólny asystent zespołu z integracjami: robi go [Design House](https://designhouse.me/automatyzacje) |
+| <img src="public/img/stamp-firma.webp" width="56" alt=""> **Abonament** | wiadomości AI bez limitu, bez klucza i bez konfiguracji; [napisz do Design House](https://designhouse.me/kontakt) (robią też boty dla zespołów) |
 
 ## Co o Tobie wiem
 
@@ -73,8 +75,9 @@ Mniej, niż myślisz. Po lewej cała moja karta o Tobie, po prawej to, co zostaj
 |---|---|
 | numer czatu i strefę czasową | treści wiadomości ani historii rozmów |
 | licznik darmowych wiadomości AI | listy zadań (to przypięta wiadomość w Telegramie) |
-| przypomnienia jako numer wiadomości i godzinę, do chwili wysłania | imienia, nazwy użytkownika, zdjęć |
+| przypomnienia jako numer wiadomości i godzinę, do chwili wysłania | nazwy użytkownika ani zdjęć |
 | klucz API, zaszyfrowany (AES-GCM), jeśli go podasz | maili ani numerów telefonów |
+| jak mam się do Ciebie zwracać i jak pisać, jeśli sam podasz | imienia z profilu Telegrama |
 | hash numeru czatu, żeby darmowe wiadomości były raz na konto | |
 
 Gdy używam AI, treść wiadomości trafia do dostawcy modelu. Telegram nie szyfruje rozmów z botami end-to-end. `/zapomnij` usuwa wszystko, co mam, poza hashem numeru czatu (bez niego darmowe wiadomości dałoby się odnawiać).
@@ -87,6 +90,7 @@ Gdy używam AI, treść wiadomości trafia do dostawcy modelu. Telegram nie szyf
 /przypomnij jutro o 9 przypomnienie (działa też w odpowiedzi na dowolną wiadomość)
 /przypomnienia        co i kiedy przypomnę
 /klucz                własny klucz AI, bez limitu (/model zmienia model)
+/ustawienia           jak mam się do Ciebie zwracać i jak pisać
 /strefa               strefa czasowa
 /id                   Twój numer konta, np. dla testerów
 /pomoc                co umiem i ile masz wiadomości

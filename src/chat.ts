@@ -2,21 +2,25 @@
  * Jeden Otto = jeden obiekt na jedną rozmowę prywatną.
  *
  * Trzymamy tylko: numer czatu, strefę, licznik darmowych wiadomości (10 na start, raz na konto),
- * zaszyfrowany klucz, numer przypiętej listy i przypomnienia jako (numer wiadomości, godzina).
+ * zaszyfrowany klucz, numer przypiętej listy, przypomnienia jako (numer wiadomości, godzina)
+ * i to, co ktoś sam podał przy personalizacji (jak się zwracać, jak pisać, do czego używa Otta).
  * Treść wiadomości zostaje w Telegramie: przypominając, Otto odpowiada na oryginał.
+ *
+ * Otto odpowiada zwykłymi wiadomościami. Jedyna odpowiedź „na wiadomość” to samo przypomnienie,
+ * bo tylko tak widać, czego dotyczy, skoro treści nie zapisujemy.
  *
  * Aktualizacje przetwarzamy po kolei (kolejka w pamięci), bo między wywołaniami
  * Telegrama obiekt może dostać kolejne zdarzenie i nadpisać stan.
  */
 
 import { DurableObject } from "cloudflare:workers";
-import { AiError, KEY_PATTERN, PROVIDER_NAMES, checkKey, completeJson, defaultModel, detectProvider, type Provider } from "./ai";
+import { AiError, KEY_PATTERN, checkKey, completeJson, defaultModel, detectProvider, type Provider } from "./ai";
 import { peppered, seal, unseal } from "./crypto";
-import { botSystem, toBotPlan } from "./prompts";
+import { type Profile, botSystem, toBotPlan } from "./prompts";
 import type { BudgetKind } from "./registry";
 import { MAX_TASKS, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
-import { T } from "./texts";
+import { T, USES, ZONES } from "./texts";
 import { DAY, eveningLabel, formatShort, formatWhen, isValidTz, localIsoToUtc, parseWhen, presetAt } from "./time";
 
 interface State {
@@ -28,9 +32,11 @@ interface State {
   key?: { provider: Provider; sealed: string; model?: string };
   /** AI bez limitu na kluczu serwera, nadane przez admina (/vip). Dzienny bezpiecznik kosztów dalej działa. */
   vip?: boolean;
-  awaiting?: "key";
+  /** Personalizacja: tylko to, co ktoś sam podał. */
+  profile?: Profile;
+  onboarded?: boolean;
+  awaiting?: "key" | "name";
   listId?: number;
-  manualCount: number;
 }
 
 const MOOD_ORDER = ["neutral", "happy", "look", "wink", "wow", "think"] as const;
@@ -74,16 +80,7 @@ export class Chat extends DurableObject<Env> {
 
   private async load(chatId?: number): Promise<State> {
     const saved = await this.ctx.storage.get<State>("state");
-    return (
-      saved ?? {
-        chatId: chatId ?? 0,
-        tz: this.env.DEFAULT_TZ,
-        lastUpdate: 0,
-        freeLeft: 0,
-        claimed: false,
-        manualCount: 0,
-      }
-    );
+    return saved ?? { chatId: chatId ?? 0, tz: this.env.DEFAULT_TZ, lastUpdate: 0, freeLeft: 0, claimed: false };
   }
 
   private async process(update: Update) {
@@ -114,6 +111,14 @@ export class Chat extends DurableObject<Env> {
     }
   }
 
+  /** Czy ta osoba może teraz pisać zwykłymi zdaniami (AI)? */
+  private aiMode(s: State): "own" | "vip" | "free" | null {
+    if (s.key) return "own";
+    if (!this.env.GEMINI_API_KEY) return null;
+    if (s.vip) return "vip";
+    return s.freeLeft > 0 ? "free" : null;
+  }
+
   // ---- wiadomości ----
 
   private async onMessage(s: State, msg: Message) {
@@ -128,13 +133,13 @@ export class Chat extends DurableObject<Env> {
     }
 
     if (text.startsWith("/")) return this.command(s, msg, text);
+    if (s.awaiting === "name" && text) return this.gotName(s, text);
     // Ktoś napisał coś innego niż klucz: wracamy do zwykłej rozmowy.
     if (s.awaiting === "key") s.awaiting = undefined;
 
-    if (text && s.key) return this.ai(s, msg, text, "own");
-    if (text && s.vip) return this.ai(s, msg, text, "vip");
-    if (text && s.freeLeft > 0) return this.ai(s, msg, text, "free");
-    return this.manual(s, msg, text);
+    const mode = this.aiMode(s);
+    if (text && mode) return this.ai(s, msg, text, mode);
+    return this.commandMode(s, text);
   }
 
   private async command(s: State, msg: Message, text: string) {
@@ -146,6 +151,8 @@ export class Chat extends DurableObject<Env> {
     switch (name) {
       case "start":
         return this.start(s);
+      case "ustawienia":
+        return this.onboardAsk(s);
       case "pomoc":
       case "help":
         return this.help(s);
@@ -186,39 +193,129 @@ export class Chat extends DurableObject<Env> {
 
   private async start(s: State) {
     await this.sticker(s, "happy");
-    const rows: Button[][] = [[{ text: T.btnKey, callback_data: "key" }, { text: T.btnHow, callback_data: "help" }]];
-    const line = s.key ? T.welcomeKey : s.freeLeft > 0 && this.env.GEMINI_API_KEY ? T.welcomeFree(s.freeLeft) : T.welcomeManual;
-    return this.say(s, T.welcome(line), { reply_markup: { inline_keyboard: rows } });
+    if (!s.onboarded) return this.onboardAsk(s, true);
+    return this.say(s, T.welcomeBack(s.profile?.name, this.modeLine(s)), {
+      reply_markup: { inline_keyboard: [[{ text: T.btnKey, callback_data: "key" }, { text: T.btnCommands, callback_data: "help" }]] },
+    });
+  }
+
+  private modeLine(s: State) {
+    const mode = this.aiMode(s);
+    if (mode === "own") return T.lineKey;
+    if (mode === "vip") return T.lineVip;
+    if (mode === "free") return T.lineFree(s.freeLeft);
+    return T.lineCommands;
   }
 
   private help(s: State) {
-    const status = s.key
-      ? `Klucz: ${PROVIDER_NAMES[s.key.provider]}, bez limitu.`
-      : s.vip
-        ? T.vipStatus
-        : s.freeLeft > 0
-        ? `Darmowe wiadomości AI: ${s.freeLeft}.`
-        : T.freeUsedStatus;
+    const status = s.key ? T.statusKey(s.key.provider) : s.vip ? T.vipStatus : s.freeLeft > 0 ? T.statusFree(s.freeLeft) : T.freeUsedStatus;
     return this.say(s, T.help(`${status} Strefa: ${s.tz}.`));
   }
 
-  // ---- tryb ręczny ----
+  // ---- personalizacja: cztery pytania, każde można pominąć ----
 
-  private async manual(s: State, msg: Message, text: string, intro?: string) {
-    const now = Date.now();
-    const target = msg.message_id;
-    const parsed = text ? parseWhen(text, now, s.tz) : null;
-    const rows = this.reminderButtons("r", target, s, parsed);
-    if (text) rows.push([{ text: T.btnList, callback_data: `l:${target}` }]);
+  private onboardAsk(s: State, first = false) {
+    const text = first ? `${T.hello}\n\n${T.onboardAsk}` : T.onboardAsk;
+    return this.say(s, text, {
+      reply_markup: { inline_keyboard: [[{ text: T.btnOnboardGo, callback_data: "p:go" }, { text: T.btnSkip, callback_data: "p:skip" }]] },
+    });
+  }
 
-    // Raz na jakiś czas przypominamy, że można więcej. Bez nachalności.
-    s.manualCount += 1;
-    if ((s.manualCount === 1 || s.manualCount % 8 === 0) && !s.key) {
-      rows.push([{ text: T.btnKey, callback_data: "key" }, { text: T.btnCompany, url: this.env.COMPANY_URL }]);
+  private askName(s: State) {
+    s.awaiting = "name";
+    return this.say(s, T.askName, { reply_markup: { inline_keyboard: [[{ text: T.btnSkip, callback_data: "p:noname" }]] } });
+  }
+
+  private gotName(s: State, text: string) {
+    const name = text.replace(/\s+/g, " ").trim();
+    if (name.length > 30 || !/^[\p{L}][\p{L}\p{M} .'-]*$/u.test(name)) return this.say(s, T.badName);
+    s.profile = { ...s.profile, name };
+    s.awaiting = undefined;
+    return this.askTone(s);
+  }
+
+  private askTone(s: State) {
+    return this.say(s, T.askTone, {
+      reply_markup: { inline_keyboard: [[{ text: T.toneShort, callback_data: "p:tone:short" }, { text: T.toneCasual, callback_data: "p:tone:casual" }]] },
+    });
+  }
+
+  private askUse(s: State) {
+    const buttons = Object.entries(USES).map(([id, label]) => ({ text: label, callback_data: `p:use:${id}` }));
+    return this.say(s, T.askUse, { reply_markup: { inline_keyboard: [buttons.slice(0, 2), buttons.slice(2)] } });
+  }
+
+  private askTz(s: State) {
+    const buttons = ZONES.map(([label, tz]) => ({ text: label, callback_data: `p:tz:${tz}` }));
+    return this.say(s, T.askTz, {
+      reply_markup: { inline_keyboard: [buttons.slice(0, 2), buttons.slice(2), [{ text: T.tzOther, callback_data: "p:tz:other" }]] },
+    });
+  }
+
+  private async finishOnboarding(s: State, extra?: string) {
+    s.onboarded = true;
+    s.awaiting = undefined;
+    const text = T.onboardDone(s.profile?.name, this.modeLine(s));
+    return this.say(s, extra ? `${extra}\n\n${text}` : text);
+  }
+
+  private async onboardingCallback(s: State, step: string, value: string | undefined, message?: Message) {
+    // Odpowiedź zostaje widoczna w pytaniu, a przyciski znikają.
+    const answer = (label: string) => (message ? this.edit(s, message.message_id, T.answered(message.text ?? "", label)) : undefined);
+    switch (step) {
+      case "go":
+        if (message) await this.edit(s, message.message_id, message.text ?? T.onboardAsk);
+        return this.askName(s);
+      case "skip":
+        if (message) await this.edit(s, message.message_id, message.text ?? T.onboardAsk);
+        return this.finishOnboarding(s);
+      case "noname":
+        s.awaiting = undefined;
+        await answer("(pominięte)");
+        return this.askTone(s);
+      case "tone":
+        if (value !== "short" && value !== "casual") return;
+        s.profile = { ...s.profile, tone: value };
+        await answer(value === "short" ? T.toneShort : T.toneCasual);
+        return this.askUse(s);
+      case "use":
+        if (!value || !USES[value]) return;
+        s.profile = { ...s.profile, use: value };
+        await answer(USES[value]);
+        return this.askTz(s);
+      case "tz": {
+        if (value === "other") {
+          await answer(T.tzOther);
+          return this.finishOnboarding(s, T.tzOtherHint);
+        }
+        if (!value || !isValidTz(value)) return;
+        s.tz = value;
+        await answer(ZONES.find(([, tz]) => tz === value)?.[0] ?? value);
+        return this.finishOnboarding(s);
+      }
     }
+  }
 
-    const lead = intro ?? (parsed ? T.manualParsed : text ? T.manualAsk : T.manualNoText);
-    return this.say(s, lead, { reply_parameters: { message_id: target }, reply_markup: { inline_keyboard: rows } });
+  // ---- tryb komend: bez AI odpowiadamy krótką podpowiedzią, bez przycisków pod każdą wiadomością ----
+
+  private commandMode(s: State, text: string) {
+    if (!text) return this.say(s, T.commandMedia);
+    const at = parseWhen(text, Date.now(), s.tz);
+    if (at) {
+      const command = `/przypomnij ${text}`.slice(0, 256);
+      return this.say(s, T.commandModeTime(formatWhen(at, Date.now(), s.tz)), {
+        reply_markup: { inline_keyboard: [[{ text: T.btnCopyCommand, copy_text: { text: command } }]] },
+      });
+    }
+    return this.say(s, T.commandMode, { reply_markup: { inline_keyboard: this.upsellRows() } });
+  }
+
+  /** Trzy drogi po darmowych wiadomościach: komendy, własny klucz, abonament Design House. */
+  private upsellRows(withCommands = false): Button[][] {
+    const rows: Button[][] = [];
+    if (withCommands) rows.push([{ text: T.btnCommands, callback_data: "help" }]);
+    rows.push([{ text: T.btnKey, callback_data: "key" }, { text: T.btnSubscription, url: this.env.CONTACT_URL }]);
+    return rows;
   }
 
   /** Przyciski z terminami. `kind` r = nowe przypomnienie, z = drzemka. */
@@ -252,8 +349,7 @@ export class Chat extends DurableObject<Env> {
   private async ai(s: State, msg: Message, text: string, mode: "own" | "free" | "vip") {
     const env = this.env;
     if (mode !== "own") {
-      if (!env.GEMINI_API_KEY) return this.manual(s, msg, text);
-      if (!(await this.registry().spend("bot", Number(env.DAILY_FREE_LIMIT)))) return this.manual(s, msg, text, T.poolEmpty);
+      if (!(await this.registry().spend("bot", Number(env.DAILY_FREE_LIMIT)))) return this.say(s, T.poolEmpty);
       if (mode === "free") s.freeLeft -= 1;
     }
     this.tg.call("sendChatAction", { chat_id: s.chatId, action: "typing" }).catch(() => {});
@@ -273,7 +369,7 @@ export class Chat extends DurableObject<Env> {
           : { provider: "gemini" as const, key: env.GEMINI_API_KEY ?? "", model: env.GEMINI_MODEL, fallbackModel: env.GEMINI_FALLBACK_MODEL };
       const raw = await completeJson({
         ...call,
-        system: botSystem(Date.now(), s.tz, list.tasks, replyTo),
+        system: botSystem(Date.now(), s.tz, list.tasks, replyTo, s.profile),
         turns: [{ role: "user", text: text.slice(0, 2000) }],
         timeoutMs: 20_000,
       });
@@ -284,8 +380,7 @@ export class Chat extends DurableObject<Env> {
         await this.refund("bot");
       }
       console.error("ai failed", error instanceof AiError ? error.kind : "unknown");
-      const intro = error instanceof AiError && error.kind === "auth" && mode === "own" ? T.keyBroken : T.aiFailed;
-      return this.manual(s, msg, text, intro);
+      return this.say(s, error instanceof AiError && error.kind === "auth" && mode === "own" ? T.keyBroken : T.aiFailed);
     }
 
     const now = Date.now();
@@ -307,23 +402,13 @@ export class Chat extends DurableObject<Env> {
       if (kept.length < list.tasks.length) lines.push(`✓ Odhaczone: ${list.tasks.length - kept.length}.`);
     }
 
-    let body = [plan.reply, lines.join("\n")].filter(Boolean).join("\n\n") || "👌";
-    let keyboard: Keyboard | undefined;
-    if (mode === "free" && s.freeLeft === 0 && !s.key) {
-      body += `\n\n${T.lastFree}`;
-      keyboard = {
-        inline_keyboard: [
-          [{ text: T.btnManual, callback_data: "help" }],
-          [{ text: T.btnKey, callback_data: "key" }, { text: T.btnCompany, url: env.COMPANY_URL }],
-        ],
-      };
-    } else if (mode === "free" && s.freeLeft <= 2) {
-      body += `\n\n${T.fewLeft(s.freeLeft)}`;
+    const body = [plan.reply, lines.join("\n")].filter(Boolean).join("\n\n") || "👌";
+    if (mode === "free" && s.freeLeft === 0) {
+      // Ostatnia darmowa: odpowiedź, a osobno trzy drogi dalej.
+      await this.say(s, body);
+      return this.say(s, T.lastFree, { reply_markup: { inline_keyboard: this.upsellRows(true) } });
     }
-    return this.say(s, body, {
-      reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true },
-      ...(keyboard ? { reply_markup: keyboard } : {}),
-    });
+    return this.say(s, mode === "free" && s.freeLeft <= 2 ? `${body}\n\n${T.fewLeft(s.freeLeft)}` : body);
   }
 
   // ---- lista zadań (przypięta wiadomość) ----
@@ -394,14 +479,17 @@ export class Chat extends DurableObject<Env> {
   // ---- przypomnienia ----
 
   private async remindCommand(s: State, msg: Message, arg: string) {
-    const target = msg.reply_to_message?.message_id ?? msg.message_id;
+    const replied = msg.reply_to_message?.message_id;
+    if (!arg && !replied) return this.say(s, T.remindUsage);
+    const target = replied ?? msg.message_id;
     const now = Date.now();
     const at = arg ? parseWhen(arg, now, s.tz) : null;
     if (at) {
       await this.addReminder(target, at);
-      return this.say(s, T.reminderSet(formatWhen(at, now, s.tz)), { reply_parameters: { message_id: msg.message_id } });
+      return this.say(s, T.reminderSet(formatWhen(at, now, s.tz)));
     }
-    return this.say(s, arg ? T.notUnderstoodTime : T.manualNoText, {
+    // Termin do wybrania: przyciski muszą wskazywać, o którą wiadomość chodzi, więc tu odpowiadamy na nią.
+    return this.say(s, arg ? T.notUnderstoodTime : T.remindWhen, {
       reply_parameters: { message_id: target, allow_sending_without_reply: true },
       reply_markup: { inline_keyboard: this.reminderButtons("r", target, s) },
     });
@@ -447,6 +535,7 @@ export class Chat extends DurableObject<Env> {
     for (const r of due) {
       this.sql.exec("DELETE FROM reminders WHERE id = ?", r.id);
       try {
+        // Jedyna odpowiedź „na wiadomość”: tylko tak widać, o czym przypominamy.
         const message = await this.tg.send(s.chatId, T.reminder, {
           reply_parameters: { message_id: r.msg_id, allow_sending_without_reply: true },
           reply_markup: { inline_keyboard: this.reminderButtons("z", r.msg_id, s) },
@@ -463,15 +552,19 @@ export class Chat extends DurableObject<Env> {
   // ---- przyciski ----
 
   private async onCallback(s: State, q: CallbackQuery) {
-    const [kind, a, b] = (q.data ?? "").split(":");
+    const [kind, a, ...rest] = (q.data ?? "").split(":");
+    const b = rest.join(":");
     const message = q.message;
     let toast: string | undefined;
 
     switch (kind) {
+      case "p":
+        await this.onboardingCallback(s, a ?? "", b || undefined, message);
+        break;
       case "r":
       case "z": {
         const now = Date.now();
-        const at = presetAt(b ?? "", now, s.tz);
+        const at = presetAt(b, now, s.tz);
         if (!at || at < now + 30_000) {
           toast = T.timePassed;
           break;
@@ -479,20 +572,6 @@ export class Chat extends DurableObject<Env> {
         await this.addReminder(Number(a), at);
         if (message) await this.edit(s, message.message_id, T.reminderSet(formatWhen(at, now, s.tz)));
         toast = "Ustawione";
-        break;
-      }
-      case "l": {
-        const source = message?.reply_to_message;
-        const task = cleanTask(source?.text ?? source?.caption ?? "");
-        if (!task) {
-          toast = T.nothingToAdd;
-          break;
-        }
-        const list = await this.readList(s);
-        const tasks = [...list.tasks, task].slice(0, MAX_TASKS);
-        await this.writeList(s, tasks, list.ok);
-        if (message) await this.edit(s, message.message_id, T.addedToList(tasks.length));
-        toast = "Dopisane";
         break;
       }
       case "ok":
@@ -505,7 +584,7 @@ export class Chat extends DurableObject<Env> {
           break;
         }
         const tasks = parseList(message.text ?? "");
-        const index = findTask(tasks, Number(a), b ?? "");
+        const index = findTask(tasks, Number(a), b);
         if (index < 0) {
           toast = "To już odhaczone";
           break;
@@ -548,8 +627,6 @@ export class Chat extends DurableObject<Env> {
     }
     await this.tg.call("answerCallbackQuery", { callback_query_id: q.id, ...(toast ? { text: toast } : {}) }).catch(() => {});
   }
-
-
 
   // ---- VIP: admin daje komuś więcej wiadomości ----
 

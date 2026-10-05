@@ -5,75 +5,91 @@
 
 import { PROVIDER_NAMES, type Provider } from "./ai";
 
-export const T = {
-  welcome: (line: string) =>
-    [
-      "Cześć, jestem Otto. Pamiętam za Ciebie.",
-      "Napisz mi, o czym nie chcesz zapomnieć, a ustawię przypomnienie albo dopiszę to do Twojej listy. Treść zostaje tutaj, w Telegramie.",
-      line,
-    ].join("\n\n"),
-  welcomeKey: "Masz podpięty własny klucz AI, więc piszesz do mnie zwykłymi zdaniami bez limitu.",
-  welcomeFree: (left: number) =>
-    `Na start masz ${messages(left)} AI: pisz do mnie zwykłymi zdaniami, np. „w piątek po pracy przypomnij mi o oponach”. Potem dalej działają przyciski i proste terminy, a bez limitu z własnym kluczem: /klucz`,
-  welcomeManual:
-    "Działają przyciski i proste terminy, np. „jutro o 9” albo „w piątek 15:30”. Zwykłe zdania zrozumiem z własnym kluczem AI: /klucz",
-  freeUsedStatus: "Darmowe wiadomości AI wykorzystane. Bez limitu z własnym kluczem: /klucz",
-  vipStatus: "AI bez limitu (VIP od Design House).",
+export const USES: Record<string, string> = { praca: "Praca", dom: "Dom", nauka: "Nauka", wszystko: "Wszystko po trochu" };
+export const ZONES: [string, string][] = [
+  ["Polska", "Europe/Warsaw"],
+  ["Wielka Brytania", "Europe/London"],
+  ["Niemcy", "Europe/Berlin"],
+  ["Irlandia", "Europe/Dublin"],
+];
 
-  // Numer konta i VIP
-  yourId: (id: number) => `Twój numer konta w Telegramie: ${id}\n\nPodaj go Design House, jeśli masz dostać więcej wiadomości AI do testów.`,
-  btnCopyId: "Kopiuj numer",
-  vipGranted: "🎉 Design House dał Ci AI bez limitu. Pisz do mnie zwykłymi zdaniami, ile chcesz.",
-  vipRemoved: "Twój dostęp VIP się skończył. Dalej działają przyciski i proste terminy, a bez limitu z własnym kluczem: /klucz",
-  messagesAdded: (n: number) => `🎉 Design House dorzucił Ci ${messages(n)} AI. Pisz do mnie zwykłymi zdaniami.`,
-  adminHelp:
-    "Komendy admina:\n/vip NUMER: AI bez limitu\n/vip NUMER 50: dorzuca 50 wiadomości\n/unvip NUMER: cofa VIP\n/vip: lista VIP-ów\n\nNumer konta ktoś sprawdza u siebie komendą /id.",
-  adminBadId: "Podaj numer konta, np. /vip 123456789. Ktoś sprawdza go u siebie komendą /id.",
-  adminBadAmount: "Liczba wiadomości od 1 do 1000, np. /vip 123456789 50.",
-  adminDone: (what: string, id: number, notified: boolean) =>
-    `✓ ${what} dla ${id}.${notified ? " Dałem mu znać." : " Nie mogłem do niego napisać: niech kliknie Start u Otta, a zmiana i tak już działa."}`,
-  adminVipList: (ids: number[]) => (ids.length ? `VIP-y (AI bez limitu):\n${ids.join("\n")}` : "Na razie nie ma VIP-ów."),
+export const T = {
+  // Powitanie i personalizacja
+  hello: "Cześć, jestem Otto. Pamiętam za Ciebie: przypominam o czasie i prowadzę Twoją listę zadań. Treść zostaje tutaj, w Telegramie.",
+  onboardAsk: "Zanim zaczniemy: cztery krótkie pytania, żebym pisał po Twojemu. Zajmie to pół minuty.",
+  btnOnboardGo: "Dobra, pytaj",
+  btnSkip: "Pomiń",
+  askName: "Jak mam się do Ciebie zwracać? Napisz imię albo ksywkę.",
+  badName: "Napisz samo imię albo ksywkę (do 30 znaków) albo kliknij „Pomiń”.",
+  askTone: "Jak mam pisać?",
+  toneShort: "Krótko i konkretnie",
+  toneCasual: "Luźno, z emoji",
+  askUse: "Do czego głównie mnie użyjesz?",
+  askTz: "Gdzie jesteś? Od tego zależą godziny przypomnień.",
+  tzOther: "Inna strefa",
+  tzOtherHint: "Wpisz swoją strefę, np. /strefa America/New_York",
+  answered: (question: string, answer: string) => `${question} ${answer}`,
+  onboardDone: (name: string | undefined, line: string) =>
+    `Gotowe${name ? `, ${name}` : ""}! ${line}\n\nZmienisz to w każdej chwili przez /ustawienia.`,
+  welcomeBack: (name: string | undefined, line: string) => `Cześć${name ? `, ${name}` : ""}! ${line}`,
+  lineFree: (left: number) => `Masz ${messages(left)} AI: pisz do mnie zwykłymi zdaniami, np. „jutro o 9 przypomnij mi o fakturze”.`,
+  lineKey: "Masz podpięty własny klucz AI, więc piszesz do mnie zwykłymi zdaniami bez limitu.",
+  lineVip: "Masz AI bez limitu od Design House. Pisz do mnie zwykłymi zdaniami.",
+  lineCommands: "Działam teraz na komendach, np. /przypomnij jutro o 9 faktura albo /dodaj mleko. Wszystkie są w /pomoc.",
 
   help: (status: string) =>
     [
       "Co umiem:",
-      "• napisz cokolwiek, a zaproponuję przypomnienie albo dopisanie do listy",
-      "• /przypomnij jutro o 9 (albo odpowiedz tak na dowolną wiadomość)",
+      "• pisz do mnie zwykłymi zdaniami (AI), np. „w piątek po pracy przypomnij mi o oponach”",
+      "• /przypomnij jutro o 9 faktura (albo odpowiedz tak na dowolną wiadomość, także zdjęcie)",
       "• /dodaj mleko, chleb: dopisuje do listy",
       "• /lista: Twoja lista, przypięta u góry czatu",
       "• /przypomnienia: co i kiedy przypomnę",
       "• /klucz: własny klucz AI, bez limitu",
-      "• /strefa: strefa czasowa",
-      "• /id: Twój numer konta, np. dla testów",
-      "• /zapomnij: usuwam Twoje dane",
+      "• /ustawienia: jak mam się do Ciebie zwracać i jak pisać",
+      "• /strefa, /id, /zapomnij",
       "",
       status,
       "",
       "Nie zapisuję treści Twoich wiadomości. Przypomnienie to dla mnie tylko numer wiadomości i godzina.",
     ].join("\n"),
+  statusKey: (provider: Provider) => `Klucz: ${PROVIDER_NAMES[provider]}, AI bez limitu.`,
+  statusFree: (left: number) => `Darmowe wiadomości AI: ${left}.`,
+  freeUsedStatus: "Darmowe wiadomości AI wykorzystane, działam na komendach. Bez limitu z własnym kluczem: /klucz",
+  vipStatus: "AI bez limitu (VIP od Design House).",
 
-  manualAsk: "Kiedy mam przypomnieć? Albo dopiszę to do listy.",
-  manualParsed: "Ustawić tak?",
-  manualNoText: "Kiedy mam Ci o tym przypomnieć?",
+  // Tryb komend (bez AI)
+  commandMode: "Teraz działam na komendach, zwykłych zdań bez AI nie rozumiem. Na przykład:\n/przypomnij jutro o 9 faktura\n/dodaj mleko, chleb\n/lista",
+  commandModeTime: (when: string) => `Wygląda na przypomnienie ${when}. Ustawisz je komendą /przypomnij, gotową masz pod przyciskiem.`,
+  commandMedia: "Żeby przypomnieć o tej wiadomości, odpowiedz na nią komendą, np. /przypomnij jutro o 9",
+  btnCopyCommand: "📋 Skopiuj komendę",
+  lastFree: [
+    "To była ostatnia z Twoich 10 darmowych wiadomości AI. Co dalej? Masz trzy drogi:",
+    "• Komendy, zawsze za darmo: /przypomnij jutro o 9 faktura, /dodaj mleko, /lista",
+    "• Własny klucz AI, bez limitu: /klucz (najprościej darmowy klucz Gemini)",
+    "• Abonament Design House: wiadomości bez limitu, bez klucza i bez konfiguracji. Napisz do nas, ustalimy szczegóły.",
+  ].join("\n"),
+  fewLeft: (left: number) => `(${remaining(left)} ${left} ${plural(left, "darmowa wiadomość", "darmowe wiadomości", "darmowych wiadomości")} AI)`,
+  poolEmpty: "Darmowa pula AI na dziś się skończyła. Do jutra działam na komendach: /pomoc",
+  aiFailed: "Nie dogadałem się teraz z modelem, ta wiadomość się nie liczy. Spróbuj za chwilę albo użyj komendy, np. /przypomnij jutro o 9 faktura",
+
+  // Przypomnienia
   reminderSet: (when: string) => `⏰ Przypomnę ${when}.`,
   reminder: "⏰ Przypominam o tym ↑",
   reminderOrphan: "⏰ Miałem Ci o czymś przypomnieć, ale ta wiadomość została usunięta.",
+  remindUsage: "Napisz, kiedy i o czym, np. /przypomnij jutro o 9 faktura. Możesz też odpowiedzieć tak na dowolną wiadomość, także na zdjęcie.",
+  remindWhen: "Kiedy mam Ci o tym przypomnieć?",
+  notUnderstoodTime: "Nie rozumiem tego terminu. Wybierz:",
   done: "✓ Zrobione",
   timePassed: "Ta godzina już minęła",
-  notUnderstoodTime: "Nie rozumiem tego terminu. Wybierz:",
-  addedToList: (count: number) => `📋 Dopisane. Na liście: ${count}. Jest przypięta u góry.`,
-  nothingToAdd: "Tu nie ma tekstu do dopisania",
-  addUsage: "Napisz, co dopisać, np. /dodaj kupić mleko, odebrać paczkę",
-  staleList: "To stara wersja listy. Aktualna jest przypięta u góry.",
-  oldListNote: "Ta lista jest nieaktualna. Aktualna jest przypięta u góry.",
   noReminders: "Nie masz zaplanowanych przypomnień.",
   remindersHeader: "Zaplanowane przypomnienia (kliknij ✕, żeby usunąć):",
   remindersNote: "Treść jest w wiadomościach, na które odpowiem.",
 
-  // Darmowe wiadomości AI
-  poolEmpty: "Darmowa pula na dziś się skończyła. Ustaw to przyciskami, a jutro wracam do zdań.",
-  lastFree: "To była Twoja ostatnia darmowa wiadomość AI. Dalej ustawisz wszystko przyciskami, a bez limitu z własnym kluczem.",
-  fewLeft: (left: number) => `(${remaining(left)} ${left} ${plural(left, "darmowa wiadomość", "darmowe wiadomości", "darmowych wiadomości")} AI)`,
+  // Lista
+  addUsage: "Napisz, co dopisać, np. /dodaj kupić mleko, odebrać paczkę",
+  staleList: "To stara wersja listy. Aktualna jest przypięta u góry.",
+  oldListNote: "Ta lista jest nieaktualna. Aktualna jest przypięta u góry.",
 
   // Własny klucz
   keyInfo: (has: string | null) =>
@@ -98,7 +114,20 @@ export const T = {
   modelSet: (model: string) => `Ustawione: ${model}. Jeśli taki model nie istnieje, zobaczysz błąd przy następnej wiadomości.`,
   modelNeedsKey: "Model zmienisz po podpięciu własnego klucza: /klucz",
   modelBad: "Nazwa modelu może mieć litery, cyfry i znaki . - _ / :",
-  aiFailed: "Nie dogadałem się teraz z modelem. Ustaw to przyciskami:",
+
+  // Numer konta i VIP
+  yourId: (id: number) => `Twój numer konta w Telegramie: ${id}\n\nPodaj go Design House, jeśli masz dostać więcej wiadomości AI do testów.`,
+  btnCopyId: "Kopiuj numer",
+  vipGranted: "🎉 Design House dał Ci AI bez limitu. Pisz do mnie zwykłymi zdaniami, ile chcesz.",
+  vipRemoved: "Twój dostęp VIP się skończył. Dalej działają komendy, a bez limitu z własnym kluczem: /klucz",
+  messagesAdded: (n: number) => `🎉 Design House dorzucił Ci ${messages(n)} AI. Pisz do mnie zwykłymi zdaniami.`,
+  adminHelp:
+    "Komendy admina:\n/vip NUMER: AI bez limitu\n/vip NUMER 50: dorzuca 50 wiadomości\n/unvip NUMER: cofa VIP\n/vip: lista VIP-ów\n\nNumer konta ktoś sprawdza u siebie komendą /id.",
+  adminBadId: "Podaj numer konta, np. /vip 123456789. Ktoś sprawdza go u siebie komendą /id.",
+  adminBadAmount: "Liczba wiadomości od 1 do 1000, np. /vip 123456789 50.",
+  adminDone: (what: string, id: number, notified: boolean) =>
+    `✓ ${what} dla ${id}.${notified ? " Dałem mu znać." : " Nie mogłem do niego napisać: niech kliknie Start u Otta, a zmiana i tak już działa."}`,
+  adminVipList: (ids: number[]) => (ids.length ? `VIP-y (AI bez limitu):\n${ids.join("\n")}` : "Na razie nie ma VIP-ów."),
 
   // Strefa i dane
   tzCurrent: (tz: string) => `Twoja strefa: ${tz}. Wybierz inną albo wpisz np. /strefa Europe/London`,
@@ -114,10 +143,8 @@ export const T = {
 
   // Przyciski
   btnKey: "🔑 Własny klucz AI",
-  btnCompany: "Bot dla firmy",
-  btnHow: "Jak to działa?",
-  btnManual: "Jak ustawiać ręcznie?",
-  btnList: "📋 Dopisz do listy",
+  btnSubscription: "Abonament: napisz do nas",
+  btnCommands: "Jak działają komendy",
 };
 
 /** Polska odmiana: 1 wiadomość, 2–4 wiadomości, 5+ wiadomości (12–14 jak 5+). */
