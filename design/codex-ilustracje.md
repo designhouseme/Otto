@@ -23,4 +23,10 @@ CHARACTERS (head-and-shoulders portrait inside a flat colour circle, friendly, s
 8. osoba-marek.png: man with a short beard and a cap, work jacket, pencil behind his ear; green circle.
 9. osoba-kasia.png: woman with round glasses and a short bob, holding a phone; lavender circle.
 
+Later batches (pricing and privacy), same style and rules as above:
+10. stamp-prezent.png: a wrapped gift box with a big ribbon bow, a couple of sparkles, meaning "free"; lilac panel.
+11. stamp-firma.png: a classic briefcase with a small speech bubble floating above it (a bot for a whole company); yellow panel.
+12. stamp-klodka.png: a closed padlock with a keyhole, small sparkles (privacy, encryption); pink panel, yellow padlock body.
+13. stamp-gumka.png: a rubber eraser rubbing out a scribble, with a few crumbs (deleting data); green panel, pink eraser.
+
 Use the image generation tool once per image. After generating, copy each final PNG into ./zrodla/ under EXACTLY the file name given (images land in ~/.codex/generated_images/<session>/ - take the newest ones). Do not edit or delete any other files. Finish by listing ./zrodla/.
