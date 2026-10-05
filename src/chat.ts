@@ -267,8 +267,9 @@ export class Chat extends DurableObject<Env> {
               provider: s.key.provider,
               key: await unseal(s.key.sealed, env.KEY_SECRET ?? "", String(s.chatId)),
               model: s.key.model ?? defaultModel(s.key.provider, env),
+              fallbackModel: s.key.provider === "gemini" && !s.key.model ? env.GEMINI_FALLBACK_MODEL : undefined,
             }
-          : { provider: "gemini" as const, key: env.GEMINI_API_KEY ?? "", model: env.GEMINI_MODEL };
+          : { provider: "gemini" as const, key: env.GEMINI_API_KEY ?? "", model: env.GEMINI_MODEL, fallbackModel: env.GEMINI_FALLBACK_MODEL };
       const raw = await completeJson({
         ...call,
         system: botSystem(Date.now(), s.tz, list.tasks, replyTo),

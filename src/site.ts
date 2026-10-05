@@ -44,6 +44,7 @@ export async function ask(request: Request, env: Env): Promise<Response> {
       provider: "gemini",
       key: env.GEMINI_API_KEY,
       model: env.GEMINI_MODEL,
+      fallbackModel: env.GEMINI_FALLBACK_MODEL,
       system: siteSystem(Number(env.FREE_MESSAGES) || 10),
       turns,
       timeoutMs: 15_000,

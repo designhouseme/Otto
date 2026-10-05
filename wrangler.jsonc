@@ -38,6 +38,8 @@
   "vars": {
     // Alias zawsze wskazuje aktualny model Flash. Konkretną wersję wpiszesz tutaj.
     "GEMINI_MODEL": "gemini-flash-latest",
+    // Gdy główny model jest przeciążony (503), Otto raz ponawia na lżejszym.
+    "GEMINI_FALLBACK_MODEL": "gemini-flash-lite-latest",
     // Darmowe wiadomości AI na jedną osobę (po potwierdzeniu maila).
     "FREE_MESSAGES": "10",
     // Bezpiecznik kosztów: łączna liczba darmowych wiadomości AI na dobę, w bocie i na stronie.

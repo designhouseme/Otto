@@ -18,10 +18,11 @@ export const PROVIDER_NAMES: Record<Provider, string> = {
  * Tylko samodzielny token z cyfrą, żeby „desk-organizer-…” w zwykłym zdaniu nie zniknął z czatu.
  */
 export const KEY_PATTERN =
-  /(?<![\w-])(AIza[0-9A-Za-z_-]{30,}|sk-(?:ant-|or-|proj-)?(?=[0-9A-Za-z_-]*\d)[0-9A-Za-z_-]{20,})(?![\w-])/;
+  /(?<![\w.-])(AIza[0-9A-Za-z_-]{30,}|AQ\.(?=[0-9A-Za-z_-]*\d)[0-9A-Za-z_-]{30,}|sk-(?:ant-|or-|proj-)?(?=[0-9A-Za-z_-]*\d)[0-9A-Za-z_-]{20,})(?![\w-])/;
 
 export function detectProvider(key: string): Provider | null {
-  if (/^AIza[0-9A-Za-z_-]{30,}$/.test(key)) return "gemini";
+  // Google wydaje klucze w dwóch formatach: starszym AIza… i nowszym AQ.…
+  if (/^(AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_-]{30,})$/.test(key)) return "gemini";
   if (/^sk-ant-[0-9A-Za-z_-]{20,}$/.test(key)) return "anthropic";
   if (/^sk-or-[0-9A-Za-z_-]{20,}$/.test(key)) return "openrouter";
   if (/^sk-[0-9A-Za-z_-]{20,}$/.test(key)) return "openai";
@@ -43,7 +44,7 @@ export function defaultModel(provider: Provider, env: Env) {
 
 export class AiError extends Error {
   constructor(
-    readonly kind: "auth" | "quota" | "timeout" | "bad" | "other",
+    readonly kind: "auth" | "quota" | "busy" | "timeout" | "bad" | "other",
     message: string,
   ) {
     super(message);
@@ -59,14 +60,20 @@ export interface JsonCall {
   provider: Provider;
   key: string;
   model: string;
+  /** Lżejszy model na wypadek przeciążenia (503). Ponawiamy raz, tylko przy szybkiej odmowie, nie po przekroczeniu czasu. */
+  fallbackModel?: string;
   system: string;
   turns: Turn[];
   timeoutMs: number;
 }
 
 export async function completeJson(call: JsonCall): Promise<unknown> {
-  const raw = await complete(call);
-  return parseJson(raw);
+  try {
+    return parseJson(await complete(call));
+  } catch (error) {
+    if (!(error instanceof AiError && error.kind === "busy" && call.fallbackModel && call.fallbackModel !== call.model)) throw error;
+    return parseJson(await complete({ ...call, model: call.fallbackModel }));
+  }
 }
 
 async function complete({ provider, key, model, system, turns, timeoutMs }: JsonCall): Promise<string> {
@@ -144,6 +151,7 @@ async function assertOk(response: Response) {
     throw new AiError("auth", `Klucz odrzucony (${response.status}).`);
   }
   if (response.status === 429) throw new AiError("quota", "Limit u dostawcy modelu.");
+  if ([500, 502, 503, 504].includes(response.status)) throw new AiError("busy", `Model przeciążony (${response.status}).`);
   if (response.status === 400 || response.status === 404) throw new AiError("bad", `Model odrzucił zapytanie (${response.status}): ${body}`);
   throw new AiError("other", `Dostawca modelu: ${response.status}`);
 }

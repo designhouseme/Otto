@@ -93,7 +93,7 @@ export const T = {
     `✓ Klucz ${PROVIDER_NAMES[provider]} działa. Twoją wiadomość z kluczem usunąłem.\n\nOd teraz piszesz bez limitu. Model: ${model}, zmienisz go przez /model nazwa.`,
   keyInvalid: (provider: Provider) => `${PROVIDER_NAMES[provider]} odrzucił ten klucz. Sprawdź, czy jest aktywny, i wyślij go jeszcze raz.`,
   keyCheckFailed: "Nie mogę teraz sprawdzić klucza. Spróbuj za chwilę.",
-  keyUnknown: "Nie rozpoznaję tego klucza. Obsługuję klucze Gemini (AIza…), OpenAI (sk-…), Anthropic (sk-ant-…) i OpenRouter (sk-or-…).",
+  keyUnknown: "Nie rozpoznaję tego klucza. Obsługuję klucze Gemini (AIza… albo AQ.…), OpenAI (sk-…), Anthropic (sk-ant-…) i OpenRouter (sk-or-…).",
   keyRemoved: "Usunąłem Twój klucz.",
   keyNone: "Nie masz podpiętego klucza.",
   keyOff: "Ta instancja Otta nie obsługuje własnych kluczy.",
