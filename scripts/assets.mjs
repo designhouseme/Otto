@@ -1,7 +1,6 @@
-// Grafiki: naklejki i avatar bota z geometrii Otta i ikony strony,
-// plus ilustracje z design/zrodla/ (Codex) przerobione na WebP.
+// Grafiki z geometrii Otta: naklejki i avatar bota oraz ikony strony.
 // Uruchomienie: npm run assets
-import { readdirSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import sharp from "sharp";
 import { MOODS, ottoSvg } from "./otto-svg.mjs";
 
@@ -19,12 +18,5 @@ await sharp(svg("neutral", { background: "#FFD21F", pad: 16 })).resize(640, 640)
 await sharp(svg("neutral", { background: "#FFD21F", pad: 12 })).resize(180, 180).png().toFile("public/apple-touch-icon.png");
 await sharp(svg("neutral", { pad: 2 })).resize(48, 48).png().toFile("public/favicon.png");
 writeFileSync("public/favicon.svg", ottoSvg("neutral", { pad: 2 }));
-
-// Ilustracje: znaczki w 2× największego rozmiaru na stronie, postacie mniejsze.
-for (const file of readdirSync("design/zrodla").filter((f) => f.endsWith(".png"))) {
-  const name = file.replace(/\.png$/, "");
-  const width = name.startsWith("osoba-") ? 192 : 480;
-  await sharp(`design/zrodla/${file}`).resize({ width }).webp({ quality: 86, alphaQuality: 90 }).toFile(`public/img/${name}.webp`);
-}
 
 console.log("gotowe");

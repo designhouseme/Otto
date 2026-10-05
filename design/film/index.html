@@ -144,7 +144,7 @@
       const CX = W / 2, CY = H / 2;
       // LENGTH: the scenes are laid out in "project time" up to TIMELINE (s). SPEED stretches the whole film evenly
       // (0.75 = 25% slower), so the film lasts TIMELINE / SPEED.
-      const TIMELINE = 42;
+      const TIMELINE = 51.5; // sceny liczą swoje długości z fizyki (sekcja „Tempo”), plansza końcowa dostaje resztę
       // Subframes per frame for the render (motion blur). render.mjs reads it, so a re-render keeps the value the film was
       // checked with: raise it to 8–10 when the fastest passage steps (references/render.md).
       const SUB = 5;
@@ -300,11 +300,13 @@
         const dy = (y0 + y1 + 1) / 2 - by;
         return { cx: (x0 + x1 + 1) / 2 - bx, cy: baseline + dy, dy, r: (x1 - x0 + 1) / 2 };
       }
-      // A row of words, each in its own mask. A 1.24 em mask plus padding leaves room for descenders and accents;
-      // with tight leading, lower maskEm towards the line spacing, so a word rising into its mask isn't seen over the line above.
-      // y is the top of the line box; the result's `base` is the baseline, for aligning rows of different sizes.
-      // Per word: { text, w (weight), style ("italic"), color }.
-      function wordRow(parent, words, { x, y, size, weight = 400, style = "", ls = "-0.03em", align = "left", color = "", maskEm = 1.24, padEm = 0.12 }) {
+      // A row of words, each in its own mask. y is the top of the line box; the result's `base` is the baseline,
+      // for aligning rows of different sizes. Per word: { text, w (weight), style ("italic"), color }.
+      // The mask ends `belowEm` under the baseline. In Urbanist the ogonek of „ą”, „ę” goes 0.23 em down and descenders
+      // 0.25 em; with the mask cut at 0.27 em, the word spent the slow end of its outExpo entry a few px too low and read
+      // "pamieta" for ~14 frames before "pamięta". At 0.55 em the ogonek shows within ~4 frames of the word itself.
+      // Above, `padEm` over the line box leaves room for accented capitals („Ś”, „Ż” reach 0.9 em over the baseline).
+      function wordRow(parent, words, { x, y, size, weight = 400, style = "", ls = "-0.03em", align = "left", color = "", padEm = 0.12, belowEm = 0.55 }) {
         const items = words.map((w) => {
           const f = FONT(w.w || weight, size, w.style ?? style);
           return { ...w, f, mw: measure(w.text, f, ls).w, sp: measure("a a", f, ls).w - measure("aa", f, ls).w };
@@ -319,13 +321,18 @@
         dot.style.cssText = "display:inline-block;width:0;height:0";
         const base = y + dot.getBoundingClientRect().top - probe.getBoundingClientRect().top;
         probe.remove();
+        const top = y - pad, bottom = base + size * belowEm;
         return {
           size,
           total,
           base,
+          // travel from below: the highest accent (0.9 em over the baseline) starts under the mask;
+          // travel upwards: the lowest descender (0.25 em under it) ends over the mask
+          travelIn: bottom - (base - size * 0.96),
+          travelOut: Math.max(size * 1.86, base + size * 0.3 - top),
           items: items.map((it) => {
             const mask = el("div", "mask", parent);
-            mask.style.cssText += `left:${cx - pad}px;top:${y - pad}px;width:${it.mw + pad * 2}px;height:${size * maskEm + pad}px`;
+            mask.style.cssText += `left:${cx - pad}px;top:${top}px;width:${it.mw + pad * 2}px;height:${bottom - top}px`;
             const s = el("span", "word", mask);
             s.textContent = it.text;
             s.style.cssText += `font:${it.f};letter-spacing:${ls};line-height:1.24;left:${pad}px;top:${pad}px;color:${it.color || color}`;
@@ -335,14 +342,16 @@
           }),
         };
       }
-      // Entry from below (outExpo) and exit upwards (in3). The exit travels 1.5 heights, because otherwise
-      // a long rotated word catches the mask with a corner and leaves a sliver of a letter on screen.
+      // Entry from below (outExpo) and exit upwards (in3), over distances measured from the mask (wordRow), so the word
+      // starts and ends fully hidden. The exit travels at least 1.86 em, because otherwise a long rotated word catches
+      // the mask with a corner and leaves a sliver of a letter on screen.
       // dir = 1: in from below, out upwards; dir = -1: in from above, out downwards (falling, sinking).
       function animRow(row, t, tin, tout, { st = 0.05, dur = 0.8, od = 0.36, rot = 5, dir = 1 } = {}) {
+        const inD = dir > 0 ? row.travelIn : row.travelOut, outD = dir > 0 ? row.travelOut : row.travelIn;
         row.items.forEach((w, i) => {
           const p = E.outExpo(prog(t, tin + i * st, tin + i * st + dur));
           const q = tout == null ? 0 : E.in3(prog(t, tout + i * st * 0.5, tout + i * st * 0.5 + od));
-          T(w.s, { y: dir * ((1 - p) * 1.1 - q * 1.5) * row.size * 1.24, r: dir * ((1 - p) * rot - q * rot * 0.6) });
+          T(w.s, { y: dir * ((1 - p) * inD - q * outD), r: dir * ((1 - p) * rot - q * rot * 0.6) });
         });
       }
 
@@ -632,44 +641,53 @@
       };
 
       // ------------------------------------------------------------------
-      // 1. Rzut (0–2.92): Otto spada w pusty kadr, łapie rzuconą myśl i podskakuje w lewo.
+      // Tempo. Każda scena liczy czas lokalny u (0 = jej początek), a jej długość wynika z fizyki: cięcie wypada,
+      // gdy Otto ląduje (start skoku J + czas lotu 2·v0/G). Zmiana w jednej scenie przesuwa wszystkie kolejne.
+      // Zasady: każdy tekst stoi co najmniej słowa × 0,3 s + 1 s, a nowy podpis wchodzi dopiero, gdy poprzedni wyszedł
+      // (dwa podpisy w jednym miejscu naraz dawały ucięte litery, np. „Komenay”).
       // ------------------------------------------------------------------
-      const T1 = 2.92;
-      scene("rzut", 0, T1, (root) => {
+      const flight = (v0) => (2 * v0) / G;
+
+      // ------------------------------------------------------------------
+      // 1. Rzut: Otto spada w pusty kadr, łapie rzuconą myśl i podskakuje w lewo.
+      // ------------------------------------------------------------------
+      const S1 = 0, J1 = 2.34, D1 = J1 + flight(970);
+      scene("rzut", S1, S1 + D1, (root) => {
         root.style.background = "var(--bg)";
         const otto = makeOtto(root, 300);
         const msg = bubble(root, "jutro o 9 przypomnij mi o fakturze", { size: 44 });
         const mw = msg.offsetWidth, mh = msg.offsetHeight;
-        cue(0.41, "impact"); cue(1.78, "pop"); cue(T1, "impact");
+        cue(S1 + 0.41, "impact"); cue(S1 + 1.95, "pop"); cue(S1 + D1, "impact");
         return (t) => {
-          const d = ballistic(t, -0.32, 700, 0, { e: 0.38, minV: 260 });
+          const u = t - S1;
+          const d = ballistic(u, -0.32, 700, 0, { e: 0.38, minV: 260 });
           let x = CX, h = d.h, sq = squashAfter(d.since, d.iv) + stretch(d.v);
           // złapanie myśli
-          sq += t > 1.78 ? squashAfter(t - 1.78, 1300) : 0;
+          sq += u > 1.95 ? squashAfter(u - 1.95, 1300) : 0;
           // przysiad i skok w lewo, lądowanie dokładnie na cięciu
-          sq += 0.12 * Math.sin(Math.PI * prog(t, 2.0, 2.17));
-          if (t > 2.17) {
-            const j = ballistic(t, 2.17, 0, 970, { e: 0.001, minV: 1e9 });
-            x = lerp(CX, 480, prog(t, 2.17, T1));
+          sq += 0.12 * Math.sin(Math.PI * prog(u, J1 - 0.17, J1));
+          if (u > J1) {
+            const j = ballistic(u, J1, 0, 970, { e: 0.001, minV: 1e9 });
+            x = lerp(CX, 480, prog(u, J1, D1));
             h = j.h;
             sq = stretch(j.v);
           }
-          const look = prog(t, 0.95, 1.25) * (1 - prog(t, 1.7, 1.8));
-          const mood = t < 0.42 ? "wow" : t < 1.5 ? "neutral" : t < 1.82 ? "wow" : "happy";
-          otto({ x, y: FLOOR, h, sq, mood, gx: -5 * look, gy: -2 * look, blink: blinkAt(t, [1.05]) });
-          // myśl leci po łuku i znika w Ottcie
-          const p = prog(t, 1.0, 1.78);
+          const look = prog(u, 1.0, 1.3) * (1 - prog(u, 1.85, 1.95));
+          const mood = u < 0.42 ? "wow" : u < 1.65 ? "neutral" : u < 1.99 ? "wow" : "happy";
+          otto({ x, y: FLOOR, h, sq, mood, gx: -5 * look, gy: -2 * look, blink: blinkAt(u, [1.1]) });
+          // myśl leci po łuku (dość wolno, żeby dało się ją przeczytać) i znika w Ottcie
+          const p = prog(u, 0.95, 1.95);
           const a = arcPos(E.lin(p), -mw - 40, 330, CX - mw / 2, FLOOR - 190 - mh / 2, 210);
-          const absorb = E.in3(prog(t, 1.66, 1.8));
-          T(msg, { x: a.x + (mw / 2) * absorb * 0.8, y: a.y, r: lerp(-14, 4, p) + Math.sin(p * 6) * 3, s: 1 - absorb * 0.85, o: t < 1.0 ? 0 : 1 - absorb });
+          const absorb = E.in3(prog(u, 1.82, 1.97));
+          T(msg, { x: a.x + (mw / 2) * absorb * 0.8, y: a.y, r: lerp(-14, 4, p) + Math.sin(p * 6) * 3, s: 1 - absorb * 0.85, o: u < 0.95 ? 0 : 1 - absorb });
         };
       });
 
       // ------------------------------------------------------------------
-      // 2. Tytuł (2.92–6.62): litery „Otto” spadają na podłogę obok niego, pod spodem zdanie.
+      // 2. Tytuł: litery „Otto” spadają na podłogę obok niego, pod spodem zdanie.
       // ------------------------------------------------------------------
-      const T2 = 6.62;
-      scene("tytul", T1, T2, (root) => {
+      const S2 = S1 + D1, J2 = 3.985, D2 = J2 + flight(800);
+      scene("tytul", S2, S2 + D2, (root) => {
         root.style.background = "var(--bg)";
         const otto = makeOtto(root, 300);
         const FS = 270;
@@ -677,33 +695,33 @@
         const word = el("div", "abs", root);
         const ls = letters(word, "Otto", font, "-0.04em");
         const x0 = 720;
-        const glyphH = FS * 1.24;
         const sub = caption(root, "pamięta za Ciebie.", { x: x0 + 6, y: FLOOR + 24, size: 96 });
         const line = wordRow(root, "Osobisty asystent w Telegramie".split(" ").map((w) => ({ text: w })), { x: x0 + 12, y: FLOOR - FS * 0.94 - 40, size: 46, weight: WT.label, color: "var(--ink-2)" });
-        cue(T1, "impact"); cue(3.2, "drop");
+        cue(S2, "impact"); cue(S2 + 0.28, "drop");
         return (t) => {
-          const land = squashAfter(t - T1, 970);
+          const u = t - S2;
+          const land = squashAfter(u, 970);
           // na koniec podskok w miejscu, lądowanie na cięciu
-          const hop = ballistic(t, 6.0, 0, 800, { e: 0.001, minV: 1e9 });
-          const pre = 0.1 * Math.sin(Math.PI * prog(t, 5.88, 6.0));
-          otto({ x: 480, y: FLOOR, h: hop.h, sq: land + pre + (t > 6.0 ? stretch(hop.v) : 0), mood: t < 4.0 ? "look" : t < 5.6 ? "happy" : "wow", gx: t < 4 ? 4 : 0, blink: blinkAt(t, [4.75]) });
+          const hop = ballistic(u, J2, 0, 800, { e: 0.001, minV: 1e9 });
+          const pre = 0.1 * Math.sin(Math.PI * prog(u, J2 - 0.12, J2));
+          otto({ x: 480, y: FLOOR, h: hop.h, sq: land + pre + (u > J2 ? stretch(hop.v) : 0), mood: u < 1.1 ? "look" : u < J2 - 0.4 ? "happy" : "wow", gx: u < 1.1 ? 4 : 0, blink: blinkAt(u, [1.85, 3.1]) });
           ls.forEach((L, i) => {
-            const b = ballistic(t, 3.0 + i * 0.09, 760, 0, { e: 0.3, minV: 300 });
+            const b = ballistic(u, 0.08 + i * 0.09, 760, 0, { e: 0.3, minV: 300 });
             const s = squashAfter(b.since, b.iv) + stretch(b.v);
-            const fall = E.in2(prog(t, 5.8 + i * 0.04, 6.5 + i * 0.04)) * 900;
-            T(L.e, { x: x0 + L.x, y: FLOOR - FS * 0.94 - b.h + fall, sx: 1 + s * 0.8, sy: 1 - s, o: t < 3.0 + i * 0.09 ? 0 : 1 });
+            const fall = E.in2(prog(u, J2 - 0.2 + i * 0.04, J2 + 0.5 + i * 0.04)) * 900;
+            T(L.e, { x: x0 + L.x, y: FLOOR - FS * 0.94 - b.h + fall, sx: 1 + s * 0.8, sy: 1 - s, o: u < 0.08 + i * 0.09 ? 0 : 1 });
             L.e.style.transformOrigin = "50% 86%";
           });
-          animCap(sub, t, 3.75, 5.8);
-          animRow(line, t, 4.3, 5.7, { st: 0.05, rot: 3 });
+          animCap(sub, u, 0.85, J2 - 0.3);
+          animRow(line, u, 1.15, J2 - 0.35, { st: 0.05, rot: 3 });
         };
       });
 
       // ------------------------------------------------------------------
-      // 3. Czat (6.62–14.42): prawdziwa scena z Telegrama, na jednym przykładzie.
+      // 3. Czat: prawdziwa scena z Telegrama, na jednym przykładzie.
       // ------------------------------------------------------------------
-      const T3 = 14.42;
-      scene("czat", T2, T3, (root) => {
+      const S3 = S2 + D2, J3 = 7.785, D3 = J3 + flight(930);
+      scene("czat", S3, S3 + D3, (root) => {
         root.style.background = "var(--bg)";
         // Noc między wieczorem a rankiem: słońce zachodzi i wschodzi, scena przygasa.
         const sun = el("div", "abs", root);
@@ -744,63 +762,68 @@
         const doneBtn = q(".done"), kb = q(".tg-kb"), r1t = q(".r1t");
         const fly = bubble(root, "jutro o 9 przypomnij mi o fakturze", { size: 30 });
         const tap = centerOf(doneBtn);
+        tap.x += 110; // obok napisu, żeby kursor nie zasłaniał „Zrobione”
         const touch = makeTouch(root);
-        const at = [7.25, 7.55, 8.55, 10.75, 11.15];
-        cue(T2, "impact"); cue(7.55, "pop"); cue(8.55, "pop"); cue(11.15, "alarm"); cue(12.62, "tap");
+        const at = [0.63, 0.93, 1.93, 4.15, 4.55];
+        cue(S3, "impact"); cue(S3 + 0.93, "pop"); cue(S3 + 1.93, "pop"); cue(S3 + 4.55, "alarm"); cue(S3 + 6.5, "tap");
         return (t) => {
+          const u = t - S3;
           // telefon wjeżdża od dołu na sprężynie, a na koniec spada
-          const up = 1 - clamp(spring(t - 6.7, 1.2, 0.7), 0, 1.1);
-          const drop = E.in2(prog(t, 13.62, 14.4)) * 1150;
+          const up = 1 - clamp(spring(u - 0.08, 1.2, 0.7), 0, 1.1);
+          const drop = E.in2(prog(u, J3 - 0.08, J3 + 0.7)) * 1150;
           T(phone, { y: up * 640 + drop, r: drop * 0.006 });
-          T(note, { y: up * 640 + drop, o: prog(t, 7.6, 8.0) });
+          T(note, { y: up * 640 + drop, o: prog(u, 0.98, 1.38) });
           steps.forEach((s, i) => {
-            const p = pop(t, at[i], 2.4, 0.5);
-            T(s, { y: (1 - clamp(p)) * 18, s: 0.94 + 0.06 * clamp(p, 0, 1.06), o: t < at[i] ? 0 : clamp(p * 2) });
+            const p = pop(u, at[i], 2.4, 0.5);
+            T(s, { y: (1 - clamp(p)) * 18, s: 0.94 + 0.06 * clamp(p, 0, 1.06), o: u < at[i] ? 0 : clamp(p * 2) });
           });
-          typing.textContent = t > 7.75 && t < 8.55 ? "pisze…" : "bot";
-          statusTime.textContent = t < 10.6 ? "18:24" : "9:00";
-          // klik w „Zrobione”: przyciski znikają, wiadomość zmienia się w „✓ Zrobione” (tak robi bot)
-          const tapX = tap.x, tapY = tap.y;
-          const tIn = prog(t, 12.0, 12.5);
-          touch(lerp(1700, tapX, E.out3(tIn)), lerp(1080, tapY, E.out3(tIn)), t > 12.0 && t < 13.3 ? 1 : 0, Math.sin(Math.PI * prog(t, 12.55, 12.75)));
-          doneBtn.classList.toggle("is-pressed", t > 12.6 && t < 12.85);
-          const edited = t > 12.85;
+          typing.textContent = u > 1.13 && u < 1.93 ? "pisze…" : "bot";
+          statusTime.textContent = u < 4.0 ? "18:24" : "9:00";
+          // klik w „Zrobione”: przyciski znikają, wiadomość zmienia się w „✓ Zrobione” (tak robi bot);
+          // przyciski stoją ponad 2 s, a wynik kliknięcia około sekundy, zanim telefon spadnie
+          const tIn = prog(u, 5.85, 6.35);
+          // kursor znika zaraz po kliknięciu: po edycji wiadomości czat się przesuwa i kółko wisiałoby nad tekstem
+          touch(lerp(1700, tap.x, E.out3(tIn)), lerp(1080, tap.y, E.out3(tIn)), prog(u, 5.85, 5.95) * (1 - prog(u, 6.68, 6.8)), Math.sin(Math.PI * prog(u, 6.4, 6.6)));
+          doneBtn.classList.toggle("is-pressed", u > 6.45 && u < 6.7);
+          const edited = u > 6.7;
           kb.style.display = edited ? "none" : "grid";
           r1t.textContent = edited ? "✓ Zrobione" : "⏰ Przypominam o tym ↑";
           // myśl z Otta leci do telefonu i staje się wiadomością
-          const fp = prog(t, 7.0, 7.55);
+          const fp = prog(u, 0.38, 0.93);
           const fa = arcPos(E.io2(fp), 480 - 120, FLOOR - 200, 1290, 330, 180);
           T(fly, { x: fa.x, y: fa.y, s: 1 - fp * 0.3, o: fp > 0 && fp < 1 ? 1 : 0, r: lerp(-6, 0, fp) });
-          // noc: słońce zachodzi i wschodzi (9.6–11.0), Otto przysypia
-          const set = E.io3(prog(t, 9.55, 10.2)), rise = E.io3(prog(t, 10.35, 11.0));
+          // noc: słońce zachodzi i wschodzi, Otto przysypia
+          const set = E.io3(prog(u, 2.95, 3.6)), rise = E.io3(prog(u, 3.75, 4.4));
           const sunY = 210 + set * 760 - rise * 760;
-          T(sun, { x: 120, y: sunY, o: t > 9.4 && t < 11.3 ? 1 : 0 });
-          night.style.opacity = (0.32 * (E.io2(prog(t, 9.85, 10.15)) - E.io2(prog(t, 10.4, 10.75)))).toFixed(3);
-          clockLbl.textContent = t < 10.3 ? "Dziś" : "Jutro";
-          clock.textContent = t < 10.3 ? "18:24" : "9:00";
-          const ck = prog(t, 9.6, 9.9) - prog(t, 11.0, 11.3);
+          T(sun, { x: 120, y: sunY, o: u > 2.8 && u < 4.7 ? 1 : 0 });
+          night.style.opacity = (0.32 * (E.io2(prog(u, 3.25, 3.55)) - E.io2(prog(u, 3.8, 4.15)))).toFixed(3);
+          clockLbl.textContent = u < 3.7 ? "Dziś" : "Jutro";
+          clock.textContent = u < 3.7 ? "18:24" : "9:00";
+          const ck = prog(u, 3.0, 3.3) - prog(u, 4.4, 4.7);
           T(clockLbl, { x: 150, y: 240, o: ck });
           T(clock, { x: 140, y: 290, o: ck });
-          animCap(cap1, t, 7.0, 9.4);
-          animCap(cap2, t, 11.2, 13.5);
+          animCap(cap1, u, 0.38, 2.85);
+          animCap(cap2, u, 4.6, 7.25);
           // Otto: ląduje z poprzedniej sceny, „mówi”, śpi w nocy, budzi się na przypomnienie, a na koniec skacze na środek
-          const land = squashAfter(t - T2, 800);
-          const wake = t > 11.15 ? squashAfter(t - 11.15, 1500) : 0;
-          const hopUp = ballistic(t, 11.12, 0, 600, { e: 0.001, minV: 1e9 });
-          const jump = ballistic(t, 13.7, 0, 930, { e: 0.001, minV: 1e9 });
-          const x = lerp(480, CX, prog(t, 13.7, T3));
-          const h = t > 13.7 ? jump.h : hopUp.h;
-          const sleep = E.io2(prog(t, 9.95, 10.2)) * (1 - E.io2(prog(t, 10.75, 10.9)));
-          const mood = t < 8.5 ? "neutral" : t < 9.5 ? "happy" : t < 11.1 ? "neutral" : t < 12.4 ? "wow" : "wink";
-          otto({ x, y: FLOOR, h, sq: land + wake + stretch(t > 13.7 ? jump.v : hopUp.v), mood, blink: Math.max(sleep * 0.92, blinkAt(t, [7.9, 9.1])), talk: t > 8.55 && t < 9.4 ? t : 0, gx: t < 9.4 ? 4 : t > 11.9 ? 5 : 0 });
+          const land = squashAfter(u, 800);
+          const wake = u > 4.55 ? squashAfter(u - 4.55, 1500) : 0;
+          const hopUp = ballistic(u, 4.52, 0, 600, { e: 0.001, minV: 1e9 });
+          const jump = ballistic(u, J3, 0, 930, { e: 0.001, minV: 1e9 });
+          const x = lerp(480, CX, prog(u, J3, D3));
+          const h = u > J3 ? jump.h : hopUp.h;
+          const sleep = E.io2(prog(u, 3.35, 3.6)) * (1 - E.io2(prog(u, 4.15, 4.3)));
+          const mood = u < 1.88 ? "neutral" : u < 2.88 ? "happy" : u < 4.5 ? "neutral" : u < 5.8 ? "wow" : "wink";
+          otto({ x, y: FLOOR, h, sq: land + wake + stretch(u > J3 ? jump.v : hopUp.v), mood, blink: Math.max(sleep * 0.92, blinkAt(u, [1.28, 2.48])), talk: u > 1.93 && u < 2.78 ? u : 0, gx: u < 2.85 ? 4 : u > 5.3 ? 5 : 0 });
         };
       });
 
       // ------------------------------------------------------------------
-      // 4. Terminy (14.42–19.92): komendy lecą do Otta, on odbija je jako godziny. Bez AI.
+      // 4. Terminy: komendy czekają po prawej jak wysłane wiadomości, a Otto odbija je po kolei jako godziny. Bez AI.
+      // Każda komenda stoi nieruchomo, zanim poleci; zamiana w wynik to przysiad i sprężyna (bez obrotu, w którym
+      // pigułka znikała do zera); wyniki zostają na podłodze do końca sceny, ułożone w kolejności czasu.
       // ------------------------------------------------------------------
-      const T4 = 19.92;
-      scene("terminy", T3, T4, (root) => {
+      const S4 = S3 + D3, J4 = 7.06, D4 = J4 + flight(830);
+      scene("terminy", S4, S4 + D4, (root) => {
         root.style.background = "var(--bg)";
         const otto = makeOtto(root, 300);
         const now = el("div", "abs", root);
@@ -808,66 +831,81 @@
         now.textContent = "Teraz: poniedziałek, 14:00";
         const cap1 = caption(root, "Komendy rozumieją terminy.", { y: 150 });
         const cap2 = caption(root, "Bez AI. Zawsze za darmo.", { y: 150 });
+        const PH = 84, GAP = 14, QX = 1800, QY = 300; // pigułka, odstęp, prawa krawędź i góra kolejki
+        const HEAD = FLOOR - 300 * 0.925 + (300 * 9) / 120; // czubek głowy Otta (kula ma promień 51/120 rozmiaru)
         const CH = [
-          ["/przypomnij za 2 h", "dziś o 16:00", -1, 250],
-          ["/przypomnij w piątek 15:30", "w piątek o 15:30", 1, 620],
-          ["/przypomnij 12.10 o 8", "pon 12.10 o 8:00", -1, 1310],
-          ["/przypomnij jutro wieczorem", "jutro o 19:00", 1, 1680],
-        ].map(([cmd, res, side, slot], i) => {
+          ["/przypomnij za 2 h", "dziś o 16:00", 250],
+          ["/przypomnij jutro wieczorem", "jutro o 19:00", 620],
+          ["/przypomnij w piątek 15:30", "w piątek o 15:30", 1310],
+          ["/przypomnij 12.10 o 8", "pon 12.10 o 8:00", 1680],
+        ].map(([cmd, res, slot], i) => {
           const c = el("div", "abs", root);
-          c.style.cssText += `padding:22px 30px;border-radius:999px;background:var(--paper);color:var(--ink);font:${FONT(WT.label, 40)};white-space:nowrap;box-shadow:0 26px 50px -34px rgb(21 21 21 / .55);transform-origin:50% 100%`;
-          c.textContent = res;
-          c.style.fontWeight = WT.heavy;
-          const wr = c.offsetWidth; // szerokość wyniku: tyle zajmie czip po wylądowaniu
-          c.style.fontWeight = WT.label;
-          c.textContent = cmd;
-          const w0 = c.offsetWidth;
-          return { c, cmd, res, side, slot, w0, wr, t0: 15.0 + i * 0.62 };
+          c.style.cssText += `height:${PH}px;padding:0 30px;border-radius:999px;color:var(--ink);white-space:nowrap;box-shadow:0 26px 50px -34px rgb(21 21 21 / .55);transform-origin:50% 100%`;
+          const look = (done) => {
+            c.textContent = done ? res : cmd;
+            c.style.font = FONT(done ? WT.heavy : WT.label, 38);
+            c.style.lineHeight = `${PH}px`;
+            c.style.background = done ? "var(--sun)" : "var(--paper)";
+          };
+          look(true);
+          const wr = c.offsetWidth; // szerokość wyniku
+          look(false);
+          const w0 = c.offsetWidth; // szerokość komendy
+          const toss = 2.1 + i * 0.85;
+          return { c, look, done: false, slot, w0, wr, show: 0.35 + i * 0.15, toss, hit: toss + 0.45, land: toss + 1.07 };
         });
-        cue(T3, "impact");
+        cue(S4, "impact");
+        CH.forEach((ch) => cue(S4 + ch.hit, "pop"));
         return (t) => {
-          let sq = squashAfter(t - T3, 930);
-          let gx = 0, mood = "neutral";
-          for (const ch of CH) {
-            const hit = ch.t0 + 0.55;
-            sq += t > hit ? squashAfter(t - hit, 1200) : 0;
-            if (t > ch.t0 - 0.1 && t < hit) gx = 5 * ch.side * -1;
-            if (t > hit && t < hit + 0.5) mood = "happy";
-            // lot do głowy Otta, potem odbicie na swoje miejsce na podłodze
-            const head = { x: CX, y: FLOOR - 330 };
-            let x, y, r = 0, s = 1;
-            const flipP = prog(t, hit, hit + 0.18);
-            if (t < hit) {
-              const a = arcPos(prog(t, ch.t0, hit), ch.side < 0 ? -700 : W + 100, 380, head.x - ch.w0 / 2, head.y, 160);
-              x = a.x; y = a.y; r = ch.side * -8 * (1 - prog(t, ch.t0, hit));
+          const u = t - S4;
+          let sq = squashAfter(u, 930);
+          let gx = 5, gy = -3, mood = "neutral";
+          const fade = 1 - E.in3(prog(u, J4 - 0.1, J4 + 0.25));
+          CH.forEach((ch, i) => {
+            if (u > ch.hit) sq += squashAfter(u - ch.hit, 1200);
+            if (u > ch.toss - 0.15 && u < ch.hit) { gx = 3; gy = -5; }
+            if (u > ch.hit && u < ch.hit + 0.55) { gx = ch.slot < CX ? -5 : 5; gy = 0; mood = "happy"; }
+            const done = u >= ch.hit;
+            if (ch.done !== done) { ch.look(done); ch.done = done; }
+            // kolejka przesuwa się w górę, gdy Otto zabierze komendę z góry
+            const ahead = CH.slice(0, i).reduce((n, o) => n + E.io3(prog(u, o.toss + 0.05, o.toss + 0.45)), 0);
+            const qx = QX - ch.w0 / 2, qy = QY + (i - ahead) * (PH + GAP);
+            let x, y, s = 1, sx = 1, sy = 1, r = 0;
+            if (u < ch.toss) {
+              x = qx; y = qy;
+              s = clamp(pop(u, ch.show, 2.6, 0.45), 0, 1.15);
+            } else if (u < ch.hit) {
+              // niski łuk: pigułka nie przelatuje przez podpis nad nią
+              const p = prog(u, ch.toss, ch.hit);
+              const a = arcPos(p, qx, qy, CX, HEAD - PH + 6, 90);
+              x = a.x; y = a.y; r = -10 * Math.sin(Math.PI * p);
+              s = 1 - 0.3 * E.in2(prog(u, ch.hit - 0.1, ch.hit));
             } else {
-              const back = ballistic(t, hit, 0, 900, { e: 0.3, minV: 260 });
-              const p = prog(t, hit, hit + 0.69);
-              x = lerp(head.x - ch.w0 / 2, ch.slot - ch.wr / 2, p);
-              y = lerp(head.y, FLOOR - 92, p) - back.h * (1 - p) * 0.4;
-              const ls = squashAfter(t - (hit + 0.69), 900);
-              s = 1;
-              T(ch.c, { x, y, sx: (t > hit + 0.69 ? 1 + ls * 0.6 : 1) * Math.abs(Math.cos(Math.PI * flipP)), sy: t > hit + 0.69 ? 1 - ls : 1, o: 1 - E.in3(prog(t, 19.2, 19.6)) });
+              const p = prog(u, ch.hit, ch.land);
+              const a = arcPos(p, CX, HEAD - PH + 6, ch.slot, FLOOR - PH, 170);
+              x = a.x; y = a.y;
+              s = 0.7 + 0.3 * clamp(spring(u - ch.hit, 2.6, 0.45), 0, 1.25);
+              if (u > ch.land) {
+                const l = squashAfter(u - ch.land, 900);
+                sx = 1 + l * 0.6; sy = 1 - l;
+              }
             }
-            if (t < hit) T(ch.c, { x, y, r, s, o: t < ch.t0 ? 0 : 1 });
-            const flipped = flipP > 0.5;
-            ch.c.textContent = flipped ? ch.res : ch.cmd;
-            ch.c.style.background = flipped ? "var(--sun)" : "var(--paper)";
-            ch.c.style.fontWeight = flipped ? WT.heavy : WT.label;
-          }
-          const hop = ballistic(t, 19.25, 0, 830, { e: 0.001, minV: 1e9 });
-          otto({ x: lerp(CX, 400, prog(t, 19.25, T4)), y: FLOOR, h: hop.h, sq: sq + stretch(hop.v), mood, gx, blink: blinkAt(t, [18.4]) });
-          T(now, { o: prog(t, 14.7, 15.0) * (1 - prog(t, 19.0, 19.3)) });
-          animCap(cap1, t, 14.75, 16.95);
-          animCap(cap2, t, 17.05, 19.4);
+            T(ch.c, { x: x - (done ? ch.wr : ch.w0) / 2, y, r, s, sx, sy, o: (u < ch.show ? 0 : 1) * fade });
+          });
+          if (u > CH[3].land + 0.3) { gx = 0; gy = 0; mood = "happy"; }
+          const hop = ballistic(u, J4, 0, 830, { e: 0.001, minV: 1e9 });
+          otto({ x: lerp(CX, 400, prog(u, J4, D4)), y: FLOOR, h: hop.h, sq: sq + stretch(hop.v), mood, gx, gy, blink: blinkAt(u, [1.2, 6.4]) });
+          T(now, { o: prog(u, 0.3, 0.6) * fade });
+          animCap(cap1, u, 0.3, 3.4);
+          animCap(cap2, u, 3.9, J4 - 0.1);
         };
       });
 
       // ------------------------------------------------------------------
-      // 5. Lista (19.92–24.62): rzeczy wpadają na przypiętą listę, klik odhacza jedną.
+      // 5. Lista: rzeczy wpadają na przypiętą listę, klik odhacza jedną.
       // ------------------------------------------------------------------
-      const T5 = 24.62;
-      scene("lista", T4, T5 + 0.55, (root) => {
+      const S5 = S4 + D4, J5 = 4.46, D5 = J5 + flight(1480);
+      scene("lista", S5, S5 + D5 + 0.55, (root) => {
         root.style.background = "var(--bg)";
         const otto = makeOtto(root, 300);
         const card = el("div", "abs listcard", root);
@@ -884,51 +922,52 @@
         const tap2 = centerOf(b2);
         const touch = makeTouch(root);
         const itemH = 74;
-        cue(T4, "impact"); cue(22.45, "tap");
+        cue(S5, "impact"); cue(S5 + 3.0, "tap");
         return (t) => {
-          T(card, { y: (1 - clamp(spring(t - 20.0, 1.2, 0.7), 0, 1.1)) * 600, o: prog(t, 20.0, 20.15) });
+          const u = t - S5;
+          const cardY = (1 - clamp(spring(u - 0.08, 1.2, 0.7), 0, 1.1)) * 600;
+          T(card, { y: cardY, o: prog(u, 0.08, 0.23) });
           items.forEach((li, i) => {
-            const ti = 20.35 + i * 0.25;
-            const s = squashAfter(t - ti - 0.12, 700);
-            let y = 0, o = t < ti ? 0 : 1, sc = clamp(pop(t, ti, 2.6, 0.45), 0, 1.15);
+            const ti = 0.5 + i * 0.3;
+            const s = squashAfter(u - ti - 0.12, 700);
+            let y = 0, o = u < ti ? 0 : 1, sc = clamp(pop(u, ti, 2.6, 0.45), 0, 1.15);
             if (i === 1) {
-              const out = prog(t, 22.6, 22.95);
+              const out = prog(u, 3.1, 3.45);
               sc = 1 + Math.sin(Math.PI * Math.min(out, 0.5)) * 0.08;
               o *= 1 - E.in2(out);
             }
-            if (i === 2) y -= E.io3(prog(t, 22.85, 23.2)) * itemH; // wpis 3 wskakuje na miejsce 2
-            T(li, { y, sx: (1 + (t > ti + 0.12 ? s : 0) * 0.6) * sc, sy: (1 - (t > ti + 0.12 ? s : 0)) * sc, o });
+            if (i === 2) y -= E.io3(prog(u, 3.35, 3.7)) * itemH; // wpis 3 wskakuje na miejsce 2
+            T(li, { y, sx: (1 + (u > ti + 0.12 ? s : 0) * 0.6) * sc, sy: (1 - (u > ti + 0.12 ? s : 0)) * sc, o });
           });
-          nums[2].textContent = t > 23.05 ? "2." : "3.";
-          btns[2].textContent = t > 23.05 ? "✓ 2" : "✓ 3";
-          btns[1].style.opacity = t > 22.95 ? 0 : 1;
-          btns[1].style.display = t > 23.05 ? "none" : "";
-          b2.classList.toggle("is-pressed", t > 22.45 && t < 22.7);
-          T(kbr, { o: prog(t, 21.2, 21.5) });
-          const tin = prog(t, 21.8, 22.35);
-          const cardY = (1 - clamp(spring(t - 20.0, 1.2, 0.7), 0, 1.1)) * 600;
-          touch(lerp(1900, tap2.x, E.out3(tin)), lerp(1080, tap2.y + cardY, E.out3(tin)), t > 21.8 && t < 23.2 ? 1 : 0, Math.sin(Math.PI * prog(t, 22.4, 22.6)));
-          T(stamp, { r: -8 + Math.sin(t * 1.4) * 2, s: clamp(pop(t, 21.0, 2.4, 0.45), 0, 1.2), o: t < 21 ? 0 : 1 });
-          animCap(cap, t, 20.4, 23.3);
+          nums[2].textContent = u > 3.55 ? "2." : "3.";
+          btns[2].textContent = u > 3.55 ? "✓ 2" : "✓ 3";
+          btns[1].style.opacity = u > 3.45 ? 0 : 1;
+          btns[1].style.display = u > 3.55 ? "none" : "";
+          b2.classList.toggle("is-pressed", u > 2.95 && u < 3.2);
+          T(kbr, { o: prog(u, 1.6, 1.9) });
+          const tin = prog(u, 2.3, 2.85);
+          touch(lerp(1900, tap2.x, E.out3(tin)), lerp(1080, tap2.y + cardY, E.out3(tin)), u > 2.3 && u < 3.7 ? 1 : 0, Math.sin(Math.PI * prog(u, 2.9, 3.1)));
+          T(stamp, { r: -8 + Math.sin(u * 1.4) * 2, s: clamp(pop(u, 1.4, 2.4, 0.45), 0, 1.2), o: u < 1.4 ? 0 : 1 });
+          animCap(cap, u, 0.45, 4.3);
           // Otto skacze wysoko na środek, a uderzenie zalewa świat żółtym (scena 6)
-          const land = squashAfter(t - T4, 830);
-          const big = ballistic(t, 23.48, 0, 1480, { e: 0.001, minV: 1e9 });
-          const pre = 0.14 * Math.sin(Math.PI * prog(t, 23.3, 23.48));
-          otto({ x: lerp(400, CX, prog(t, 23.48, T5)), y: FLOOR, h: big.h, sq: land + pre + stretch(big.v), mood: t < 22.6 ? "look" : t < 23.4 ? "happy" : "wow", gx: t < 22.6 ? 5 : 0, gy: t < 22.6 ? -2 : 0, blink: blinkAt(t, [21.5]) });
+          const land = squashAfter(u, 830);
+          const big = ballistic(u, J5, 0, 1480, { e: 0.001, minV: 1e9 });
+          const pre = 0.14 * Math.sin(Math.PI * prog(u, J5 - 0.18, J5));
+          otto({ x: lerp(400, CX, prog(u, J5, D5)), y: FLOOR, h: big.h, sq: land + pre + stretch(big.v), mood: u < 3.1 ? "look" : u < J5 - 0.08 ? "happy" : "wow", gx: u < 3.1 ? 5 : 0, gy: u < 3.1 ? -2 : 0, blink: blinkAt(u, [1.9, 3.95]) });
         };
       });
 
       // ------------------------------------------------------------------
-      // 6. Kulminacja (24.62–33.0): świat robi się żółty, Otto jest kropką na końcu zdań.
+      // 6. Kulminacja: świat robi się żółty, Otto jest kropką na końcu zdań.
       // ------------------------------------------------------------------
-      const T6 = 33.0;
-      scene("zolty", T5, T6, (root) => {
+      const S6 = S5 + D5, D6 = 10.6;
+      scene("zolty", S6, S6 + D6, (root) => {
         const wash = el("div", "fill", root);
         const otto = makeOtto(root, OS);
         const shots = [
-          { t0: 25.4, t1: 27.6, lines: ["10 wiadomości AI", "na start"] },
-          { t0: 27.75, t1: 30.25, lines: ["Bez maila.", "Bez rejestracji"] },
-          { t0: 30.4, t1: 32.15, lines: ["Bez limitu: własny klucz", "albo abonament"] },
+          { t0: 0.78, t1: 3.45, lines: ["10 wiadomości AI", "na start"] },
+          { t0: 3.95, t1: 6.45, lines: ["Bez maila.", "Bez rejestracji"] },
+          { t0: 6.95, t1: 9.75, lines: ["Bez limitu: własny klucz", "albo abonament"] },
         ].map((sh) => {
           const size = 132;
           const rows = sh.lines.map((ln, i) => wordRow(root, ln.split(" ").map((w) => ({ text: w })), { x: 150, y: 330 + i * size * 1.12, size, weight: WT.display }));
@@ -939,39 +978,40 @@
         const stamp = el("img", "abs", root);
         stamp.src = "img/stamp-klucz.webp";
         stamp.style.cssText += "width:220px;left:1560px;top:150px";
-        cue(T5, "boom");
+        cue(S6, "boom");
         return (t) => {
+          const u = t - S6;
           // iris z miejsca uderzenia, potem powrót do kremu przed sceną 7
           // krawędź koła miękka w proporcji do prędkości (references/techniques.md), żeby nie schodkowała
           const R1 = farthest(CX, FLOOR) * 1.02;
-          const rIn = (u) => R1 * E.io3(prog(u, T5, T5 + 0.5));
-          iris(wash, rIn(t) / R1, { cx: CX, cy: FLOOR, r1: R1, color: "var(--sun)", feather: Math.max(1, 0.6 * Math.abs(vel(rIn, t))) });
-          if (t > T6 - 0.5) {
+          const rIn = (v) => R1 * E.io3(prog(v, 0, 0.5));
+          iris(wash, rIn(u) / R1, { cx: CX, cy: FLOOR, r1: R1, color: "var(--sun)", feather: Math.max(1, 0.6 * Math.abs(vel(rIn, u))) });
+          if (u > D6 - 0.5) {
             const R2 = farthest(shots[2].dot.x, shots[2].dot.y) * 1.02;
-            const rOut = (u) => R2 * (1 - E.io3(prog(u, T6 - 0.5, T6)));
-            iris(wash, rOut(t) / R2, { cx: shots[2].dot.x, cy: shots[2].dot.y, r1: R2, color: "var(--sun)", feather: Math.max(1, 0.6 * Math.abs(vel(rOut, t))) });
+            const rOut = (v) => R2 * (1 - E.io3(prog(v, D6 - 0.5, D6)));
+            iris(wash, rOut(u) / R2, { cx: shots[2].dot.x, cy: shots[2].dot.y, r1: R2, color: "var(--sun)", feather: Math.max(1, 0.6 * Math.abs(vel(rOut, u))) });
           }
-          // Otto: z podłogi na koniec pierwszego zdania, potem skok z kropki na kropkę
-          let st = { x: CX, y: FLOOR, h: 0, s: 1, sq: squashAfter(t - T5, 1480) };
+          // Otto: z podłogi na koniec pierwszego zdania, potem skok z kropki na kropkę, gdy poprzednie zdanie już wyszło
+          let st = { x: CX, y: FLOOR, h: 0, s: 1, sq: squashAfter(u, 1480) };
           const toDot = (k, from, ta, tb) => {
-            const p = prog(t, ta, tb);
+            const p = prog(u, ta, tb);
             const a = arcPos(E.lin(p), from.x, from.y, shots[k].dot.x, shots[k].dot.y, k === 0 ? 420 : 240);
-            return { x: a.x, y: a.y, h: 0, s: lerp(from.s, 0.3, E.io2(p)), sq: t > tb ? squashAfter(t - tb, 1100) : 0 };
+            return { x: a.x, y: a.y, h: 0, s: lerp(from.s, 0.3, E.io2(p)), sq: u > tb ? squashAfter(u - tb, 1100) : 0 };
           };
-          if (t > 24.95) st = toDot(0, { x: CX, y: FLOOR, s: 1 }, 24.95, 25.38);
-          if (t > 27.5) st = toDot(1, { ...shots[0].dot, s: 0.3 }, 27.5, 28.25);
-          if (t > 30.1) st = toDot(2, { ...shots[1].dot, s: 0.3 }, 30.1, 30.85);
-          otto({ ...st, mood: t < 25.4 ? "wow" : t < 30.9 ? "happy" : "wink", shadow: 0, blink: blinkAt(t, [26.6, 29.2]) });
-          for (const sh of shots) sh.rows.forEach((row, i) => animRow(row, t, sh.t0 + i * 0.18, sh.t1, { st: 0.06 }));
-          T(stamp, { r: 8 + Math.sin(t * 1.3) * 2.5, s: clamp(pop(t, 30.7, 2.4, 0.45), 0, 1.2) * (1 - E.in3(prog(t, 32.0, 32.3))), o: t > 30.7 && t < 32.3 ? 1 : 0 });
+          if (u > 0.33) st = toDot(0, { x: CX, y: FLOOR, s: 1 }, 0.33, 0.76);
+          if (u > 3.6) st = toDot(1, { ...shots[0].dot, s: 0.3 }, 3.6, 4.4);
+          if (u > 6.6) st = toDot(2, { ...shots[1].dot, s: 0.3 }, 6.6, 7.4);
+          otto({ ...st, mood: u < 0.78 ? "wow" : u < 7.45 ? "happy" : "wink", shadow: 0, blink: blinkAt(u, [1.95, 5.2, 8.6]) });
+          for (const sh of shots) sh.rows.forEach((row, i) => animRow(row, u, sh.t0 + i * 0.18, sh.t1, { st: 0.06 }));
+          T(stamp, { r: 8 + Math.sin(u * 1.3) * 2.5, s: clamp(pop(u, 7.45, 2.4, 0.45), 0, 1.2) * (1 - E.in3(prog(u, 9.45, 9.75))), o: u > 7.45 && u < 9.75 ? 1 : 0 });
         };
       });
 
       // ------------------------------------------------------------------
-      // 7. Paragon (33.0–36.8): cała karta Otta o Tobie. Treść zostaje w Telegramie.
+      // 7. Paragon: cała karta Otta o Tobie. Treść zostaje w Telegramie.
       // ------------------------------------------------------------------
-      const T7 = 36.8;
-      scene("paragon", T6, T7, (root) => {
+      const S7 = S6 + D6, J7 = 4.55, D7 = J7 + flight(900);
+      scene("paragon", S7, S7 + D7, (root) => {
         root.style.background = "var(--bg)";
         const otto = makeOtto(root, 240);
         const paper = el("div", "abs receipt", root);
@@ -984,27 +1024,31 @@
         stamp.src = "img/stamp-klodka.webp";
         stamp.style.cssText += "width:170px;left:930px;top:110px";
         const cap = caption(root, ["Treść zostaje", "w Telegramie."], { x: 1120, y: 300, size: 100 });
-        cue(T6, "whoosh");
+        cue(S7, "whoosh");
         return (t) => {
-          // drukowanie: papier wysuwa się z góry, wiersze po kolei
-          const print = E.out3(prog(t, 33.15, 34.0));
+          const u = t - S7;
+          // drukowanie: papier wysuwa się z góry, wiersze po kolei; cała karta stoi potem ok. 2,5 s
+          const print = E.out3(prog(u, 0.15, 1.0));
           paper.style.clipPath = `inset(0 0 ${(1 - print) * 100}% 0)`;
-          const off = E.in2(prog(t, 35.95, 36.75)) * 1100;
+          const off = E.in2(prog(u, J7 - 0.35, J7 + 0.45)) * 1100;
           T(paper, { y: off, r: off * 0.004 });
-          rows.forEach((r, i) => (r.style.opacity = clamp((t - (33.55 + i * 0.22)) / 0.2)));
-          T(stamp, { y: off, r: 9 + Math.sin(t * 1.5) * 2, s: clamp(pop(t, 34.45, 2.4, 0.45), 0, 1.2), o: t > 34.45 ? 1 : 0 });
-          animCap(cap, t, 34.0, 36.3);
-          const drop = ballistic(t, T6 - 0.1, 560, 0, { e: 0.36, minV: 240 });
-          const hop = ballistic(t, 36.15, 0, 900, { e: 0.001, minV: 1e9 });
-          const h = t > 36.15 ? hop.h : drop.h;
-          otto({ x: lerp(1260, CX, prog(t, 36.15, T7)), y: 1010 - 140, h, sq: (t > 36.15 ? stretch(hop.v) : squashAfter(drop.since, drop.iv) + stretch(drop.v)), mood: t < 35 ? "look" : "wink", gx: t < 35 ? -5 : 0, blink: blinkAt(t, [34.2]) });
+          rows.forEach((r, i) => (r.style.opacity = clamp((u - (0.55 + i * 0.25)) / 0.2)));
+          T(stamp, { y: off, r: 9 + Math.sin(u * 1.5) * 2, s: clamp(pop(u, 1.6, 2.4, 0.45), 0, 1.2), o: u > 1.6 ? 1 : 0 });
+          animCap(cap, u, 1.0, J7 - 0.35);
+          const drop = ballistic(u, -0.1, 560, 0, { e: 0.36, minV: 240 });
+          const hop = ballistic(u, J7, 0, 900, { e: 0.001, minV: 1e9 });
+          const h = u > J7 ? hop.h : drop.h;
+          otto({ x: lerp(1260, CX, prog(u, J7, D7)), y: 1010 - 140, h, sq: (u > J7 ? stretch(hop.v) : squashAfter(drop.since, drop.iv) + stretch(drop.v)), mood: u < 2.2 ? "look" : "wink", gx: u < 2.2 ? -5 : 0, blink: blinkAt(u, [1.2, 3.3]) });
         };
       });
 
       // ------------------------------------------------------------------
-      // 8. Plansza końcowa (36.8–41): Otto ląduje jak na początku, dwa „O” z napisu stają się jego oczami.
+      // 8. Plansza końcowa: Otto ląduje jak na początku, dwa „O” z napisu stają się jego oczami.
+      // Stoi do końca filmu (TIMELINE), tekst co najmniej 3,5 s.
       // ------------------------------------------------------------------
-      scene("koniec", T7, TIMELINE + 1, (root) => {
+      const S8 = S7 + D7;
+      if (TIMELINE - S8 < 5.9) console.error(`Plansza końcowa trwa ${(TIMELINE - S8).toFixed(2)} s: wydłuż TIMELINE.`);
+      scene("koniec", S8, TIMELINE + 1, (root) => {
         root.style.background = "var(--bg)";
         const OY = 470, OSZ = 300;
         const otto = makeOtto(root, OSZ);
@@ -1030,15 +1074,16 @@
         const dh = el("img", "abs", root);
         dh.src = "img/design-house.svg";
         dh.style.cssText += `height:34px;left:${CX - 136}px;top:${H - 86}px`;
-        cue(37.25, "impact"); cue(38.0, "rise"); cue(38.9, "pop");
+        cue(S8 + 0.45, "impact"); cue(S8 + 1.2, "rise"); cue(S8 + 2.1, "pop");
         return (t) => {
-          const d = ballistic(t, T7 - 0.22, 430, 0, { e: 0.36, minV: 240 });
-          const morph = E.io3(prog(t, 38.05, 38.85));
-          const eyesOn = t > 38.85;
-          otto({ x: CX, y: OY, h: d.h, sq: squashAfter(d.since, d.iv) + stretch(d.v) + (eyesOn ? squashAfter(t - 38.85, 900) : 0), mood: t < 40.0 ? "neutral" : "wink", eyes: eyesOn ? 1 : 0, blink: blinkAt(t, [39.5]), s: 1 });
+          const u = t - S8;
+          const d = ballistic(u, -0.22, 430, 0, { e: 0.36, minV: 240 });
+          const morph = E.io3(prog(u, 1.25, 2.05));
+          const eyesOn = u > 2.05;
+          otto({ x: CX, y: OY, h: d.h, sq: squashAfter(d.since, d.iv) + stretch(d.v) + (eyesOn ? squashAfter(u - 2.05, 900) : 0), mood: u < 3.4 ? "neutral" : "wink", eyes: eyesOn ? 1 : 0, blink: blinkAt(u, [2.7, 5.1]), s: 1 });
           // napis: litery wpadają po kolei
           ls.forEach((L, i) => {
-            const p = E.outExpo(prog(t, 37.35 + i * 0.06, 38.0 + i * 0.06));
+            const p = E.outExpo(prog(u, 0.55 + i * 0.06, 1.2 + i * 0.06));
             T(L.e, { x: wx + L.x, y: wy + (1 - p) * 90, o: p });
           });
           // pierścienie liter „O” → białe kapsuły oczu
@@ -1063,19 +1108,19 @@
             r.setAttribute("stroke", morph < 0.4 ? css("--ink") : "#fff");
             r.setAttribute("stroke-width", sw.toFixed(1));
             r.setAttribute("fill", morph > 0.4 ? "#fff" : "none");
-            r.style.opacity = t > 38.0 && !eyesOn ? 1 : 0;
+            r.style.opacity = u > 1.2 && !eyesOn ? 1 : 0;
             // litera w napisie: oddaje się na oczy i po chwili odrasta
-            const back = 39.0 + k * 0.08;
-            if (t > 38.0 && t < back) L.e.style.opacity = 0;
-            else if (t >= back) {
+            const back = 2.2 + k * 0.08;
+            if (u > 1.2 && u < back) L.e.style.opacity = 0;
+            else if (u >= back) {
               L.e.style.opacity = 1;
-              L.e.style.transform += ` scale(${clamp(pop(t, back, 2.6, 0.45), 0, 1.15)})`;
+              L.e.style.transform += ` scale(${clamp(pop(u, back, 2.6, 0.45), 0, 1.15)})`;
             }
           });
-          T(handle, { y: (1 - E.outExpo(prog(t, 38.95, 39.55))) * 30, o: prog(t, 38.95, 39.2) });
-          T(site, { y: (1 - E.outExpo(prog(t, 39.15, 39.75))) * 30, o: prog(t, 39.15, 39.4) });
-          T(free, { y: (1 - E.outExpo(prog(t, 39.35, 39.95))) * 30, o: prog(t, 39.35, 39.6) });
-          T(dh, { o: prog(t, 39.55, 39.9) });
+          T(handle, { y: (1 - E.outExpo(prog(u, 2.15, 2.75))) * 30, o: prog(u, 2.15, 2.4) });
+          T(site, { y: (1 - E.outExpo(prog(u, 2.35, 2.95))) * 30, o: prog(u, 2.35, 2.6) });
+          T(free, { y: (1 - E.outExpo(prog(u, 2.55, 3.15))) * 30, o: prog(u, 2.55, 2.8) });
+          T(dh, { o: prog(u, 2.75, 3.1) });
         };
       });
 

@@ -9,7 +9,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const Motion = window.Motion;
 const CONTACT_URL = "https://designhouse.me/kontakt";
-const GITHUB_URL = "https://github.com/Arkazzae/otto-bot";
+const GITHUB_URL = "https://github.com/designhouseme/Otto";
 const telegramUrl = new URL("/telegram", location.href).href;
 
 // ---------- Otto ----------

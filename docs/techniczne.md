@@ -18,7 +18,7 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 | [`src/crypto.ts`](../src/crypto.ts) | hashe z `HASH_PEPPER`, AES-GCM dla kluczy |
 | [`src/texts.ts`](../src/texts.ts) | wszystko, co Otto mówi w Telegramie |
 | [`public/`](../public/) | strona: `index.html`, `assets/otto.js` (animowany Otto), `assets/app.js` (reakcje i czat), naklejki, ilustracje, fonty |
-| [`scripts/assets.mjs`](../scripts/assets.mjs) | naklejki, avatar, ikony i WebP z [`scripts/otto-svg.mjs`](../scripts/otto-svg.mjs) i `design/zrodla/` |
+| [`scripts/assets.mjs`](../scripts/assets.mjs) | naklejki, avatar i ikony z geometrii Otta w [`scripts/otto-svg.mjs`](../scripts/otto-svg.mjs) |
 | [`scripts/smoke.mjs`](../scripts/smoke.mjs) | test dymny całego bota na lokalnym `wrangler dev` |
 
 ## Jak płynie wiadomość
@@ -27,7 +27,7 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 2. Resztę robi obiekt `Chat` dla tego czatu (w `waitUntil`, czyli do 30 s po odpowiedzi). Aktualizacje jednej osoby idą po kolei (kolejka w pamięci obiektu), a powtórki Telegrama odrzuca numer `update_id`.
 3. Kolejność decyzji: wiadomość z kluczem API (kasujemy ją przed czymkolwiek innym) → komenda → imię z personalizacji → AI (własny klucz, VIP albo darmowe wiadomości) → tryb komend. Otto odpowiada zwykłymi wiadomościami; jedyna odpowiedź „na wiadomość” to samo przypomnienie (i przyciski terminu po `/przypomnij` w odpowiedzi na wiadomość).
 4. Pierwsze `/start` proponuje personalizację: imię albo ksywka, ton (krótko albo luźno), do czego Otto ma służyć, strefa czasowa. Każdy krok można pominąć, a `/ustawienia` zaczyna od nowa. Model dostaje to w instrukcji.
-5. Bez AI (po 10 darmowych, bez klucza i VIP-a) zwykły tekst dostaje krótką podpowiedź z komendą. Jeśli w tekście jest termin, przycisk „Skopiuj komendę” podsuwa gotowe `/przypomnij …`. Po ostatniej darmowej wiadomości Otto pisze o trzech drogach: komendy, własny klucz, abonament (`CONTACT_URL`). (własny klucz albo darmowa pula) → tryb ręczny z przyciskami.
+5. Bez AI (po 10 darmowych, bez klucza i VIP-a) zwykły tekst dostaje krótką podpowiedź z komendą. Jeśli w tekście jest termin, przycisk „Skopiuj komendę” podsuwa gotowe `/przypomnij …`. Po ostatniej darmowej wiadomości Otto pisze o trzech drogach: komendy, własny klucz, abonament (`CONTACT_URL`).
 
 ## Dane
 
