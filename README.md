@@ -1,47 +1,112 @@
-<img src="public/og.png" alt="Otto pamięta za Ciebie. Przypomnienia i lista zadań w Telegramie." width="100%">
+<p align="center">
+  <img src="public/og.png" alt="Otto pamięta za Ciebie. Przypomnienia i lista zadań w Telegramie." width="100%">
+</p>
 
-# Otto
+<p align="center">
+  <a href="https://t.me/HiOttoBot"><img src="docs/readme/btn-telegram.png" alt="Napisz do Otta w Telegramie" height="56"></a>
+  &nbsp;
+  <a href="https://otto.designhouse.me"><img src="docs/readme/btn-site.png" alt="Zobacz stronę i rzuć Ottem" height="56"></a>
+</p>
 
-Osobisty asystent na Telegramie. Piszesz do niego jak do znajomego, a Otto przypomina o czasie i prowadzi Twoją listę zadań. Każdy ma własnego Otta, to nie jest bot dla grupy.
+<p align="center">
+  <img src="public/stickers/neutral.webp" width="64" alt="Otto słucha">
+  <img src="public/stickers/look.webp" width="64" alt="Otto zerka">
+  <img src="public/stickers/think.webp" width="64" alt="Otto myśli">
+  <img src="public/stickers/happy.webp" width="64" alt="Otto się cieszy">
+  <img src="public/stickers/wink.webp" width="64" alt="Otto puszcza oko">
+  <img src="public/stickers/wow.webp" width="64" alt="Otto: wow">
+</p>
 
-Otto robi tyle, ile się da, narzędziami samego Telegrama. Lista zadań to przypięta wiadomość w czacie, a przypomnienie to odpowiedź na Twoją oryginalną wiadomość. Dzięki temu treść zostaje w Telegramie, a po naszej stronie jest tylko to, co niezbędne.
+## Cześć, jestem Otto
 
-## Co umie
+Jestem czarną kulką z dwoma oczami (to te dwa „O” w moim imieniu) i mieszkam w Telegramie. Piszesz do mnie jak do znajomego, na przykład „jutro o 9 faktura dla Kowalskiego”, a ja jutro o 9:00 odpowiadam na tę wiadomość. Prowadzę też Twoją listę zadań, przypiętą u góry czatu.
 
-- **Przypomnienia o każdej wiadomości**, także o zdjęciu czy notatce głosowej. Przyciski „Za godzinę”, „Jutro 9:00”, drzemka „+15 min”, „Zrobione”.
-- **Polskie terminy bez AI:** „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”.
-- **Lista zadań** przypięta u góry czatu. Odhaczasz jednym kliknięciem.
-- **Zwykłe zdania z AI**, np. „po pracy przypomnij mi o oponach”: 10 wiadomości za darmo na start, bez maila i rejestracji, a bez limitu z własnym kluczem (Gemini, OpenAI, Anthropic albo OpenRouter).
-- **Strona z Ottem**, którym można rzucać jak piłką i z którym można porozmawiać. Odpowiada przez Gemini Flash, a bez sieci gotowymi odpowiedziami.
+Nie zapisuję, co piszesz. Przypomnienie to dla mnie numer wiadomości i godzina, a lista to wiadomość w Twoim Telegramie. Każdy ma swojego Otta: nie jestem botem do grup.
+
+<p align="center">
+  <img src="docs/readme/hero.png" alt="Otto na żółtym kole nad przykładowymi rozmowami" width="46%">
+  &nbsp;&nbsp;
+  <img src="docs/readme/telegram.png" alt="Rozmowa z Ottem w Telegramie: przypomnienie z przyciskami" width="38%">
+</p>
+
+## Co umiem
+
+<table>
+  <tr>
+    <td width="96"><img src="public/img/stamp-budzik.webp" width="88" alt=""></td>
+    <td><b>Przypominam o każdej wiadomości.</b> Także o zdjęciu paragonu albo głosówce. Klikasz „Za godzinę” albo „Jutro 9:00”, a gdy przyjdzie pora, mam drzemkę „+15 min” i „Zrobione”.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-kalendarz.webp" width="88" alt=""></td>
+    <td><b>Rozumiem terminy bez żadnego AI.</b> „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”, „jutro wieczorem”. Także zmianę czasu w październiku.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-lista.webp" width="88" alt=""></td>
+    <td><b>Trzymam jedną listę.</b> <code>/dodaj mleko, chleb</code> i lista jest przypięta u góry czatu. Zrobione? Klikasz numer i znika.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-samolot.webp" width="88" alt=""></td>
+    <td><b>Na start rozumiem zwykłe zdania.</b> Każde konto dostaje ode mnie 10 wiadomości AI, bez maila i rejestracji: „po pracy przypomnij mi o oponach” i już.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-klucz.webp" width="88" alt=""></td>
+    <td><b>Z Twoim kluczem gadam bez limitu.</b> Gemini (najprościej darmowy klucz z Google AI Studio), OpenAI, Anthropic albo OpenRouter. Wiadomość z kluczem kasuję od razu, a klucz trzymam zaszyfrowany.</td>
+  </tr>
+</table>
+
+## Ile kosztuję
 
 | Poziom | Co daje |
 |---|---|
-| Za darmo, zawsze | przyciski, komendy, terminy typu „jutro o 9”, przypomnienia i lista bez limitu |
-| 10 wiadomości AI | na start, raz na konto Telegrama, bez maila i rejestracji |
-| Własny klucz | AI bez limitu; za użycie płacisz dostawcy klucza |
-| Bot dla firmy | wspólny asystent zespołu z integracjami: [Design House](https://designhouse.me/automatyzacje) |
+| <img src="public/img/stamp-prezent.webp" width="56" alt=""> **0 zł, zawsze** | przypomnienia, lista, przyciski i terminy typu „jutro o 9”, bez limitu |
+| <img src="public/img/stamp-samolot.webp" width="56" alt=""> **10 wiadomości AI na start** | raz na konto Telegrama, bez maila i rejestracji |
+| <img src="public/img/stamp-klucz.webp" width="56" alt=""> **Własny klucz** | AI bez limitu; za użycie płacisz dostawcy klucza, nie nam |
+| <img src="public/img/stamp-firma.webp" width="56" alt=""> **Bot dla firmy** | wspólny asystent zespołu z integracjami: robi go [Design House](https://designhouse.me/automatyzacje) |
 
-## Prywatność
+## Co o Tobie wiem
 
-| Zapisujemy | Nie zapisujemy |
+Mniej, niż myślisz. Po lewej cała moja karta o Tobie, po prawej to, co zostaje tylko w Twoim Telegramie.
+
+<p align="center"><img src="docs/readme/prywatnosc.png" alt="Karta danych Otta w formie paragonu obok czatu z zakrytą treścią" width="92%"></p>
+
+| Zapisuję | Nie zapisuję |
 |---|---|
 | numer czatu i strefę czasową | treści wiadomości ani historii rozmów |
 | licznik darmowych wiadomości AI | listy zadań (to przypięta wiadomość w Telegramie) |
 | przypomnienia jako numer wiadomości i godzinę, do chwili wysłania | imienia, nazwy użytkownika, zdjęć |
-| klucz API, zaszyfrowany (AES-GCM), jeśli go podasz | |
-| hash numeru czatu, żeby darmowe wiadomości były raz na konto | maili ani numerów telefonów |
+| klucz API, zaszyfrowany (AES-GCM), jeśli go podasz | maili ani numerów telefonów |
+| hash numeru czatu, żeby darmowe wiadomości były raz na konto | |
 
-Gdy Otto używa AI, treść wiadomości trafia do dostawcy modelu. Telegram nie szyfruje rozmów z botami end-to-end. `/zapomnij` usuwa wszystko, co mamy, poza hashem numeru czatu (bez niego darmowe wiadomości dałoby się odnawiać). Wiadomość z kluczem Otto kasuje z czatu od razu.
+Gdy używam AI, treść wiadomości trafia do dostawcy modelu. Telegram nie szyfruje rozmów z botami end-to-end. `/zapomnij` usuwa wszystko, co mam, poza hashem numeru czatu (bez niego darmowe wiadomości dałoby się odnawiać).
 
 ## Komendy
 
-`/lista` · `/dodaj mleko, chleb` · `/przypomnij jutro o 9` (także w odpowiedzi na dowolną wiadomość) · `/przypomnienia` · `/klucz` · `/model` · `/strefa` · `/id` · `/pomoc` · `/zapomnij`
+```text
+/lista                Twoja lista, przypięta u góry czatu
+/dodaj mleko, chleb   dopisuje do listy
+/przypomnij jutro o 9 przypomnienie (działa też w odpowiedzi na dowolną wiadomość)
+/przypomnienia        co i kiedy przypomnę
+/klucz                własny klucz AI, bez limitu (/model zmienia model)
+/strefa               strefa czasowa
+/id                   Twój numer konta, np. dla testerów
+/pomoc                co umiem i ile masz wiadomości
+/zapomnij             usuwam Twoje dane
+```
 
-**Testerzy i VIP-y.** Ktoś sprawdza swój numer konta komendą `/id`, a admin (numer w sekrecie `ADMIN_CHAT_IDS`) daje mu w bocie `/vip NUMER` (AI bez limitu na kluczu serwera), `/vip NUMER 50` (dorzuca 50 wiadomości) albo `/unvip NUMER`. Samo `/vip` pokazuje listę. Dzienny bezpiecznik kosztów działa też dla VIP-ów.
+## Na stronie można mną rzucać
 
-## Własna instancja
+Na [otto.designhouse.me](https://otto.designhouse.me) złap mnie w hero i rzuć: odbijam się od ścian jak piłka, toczę się, wołam „Juhuuu!” i wracam na miejsce. Ten mniejszy ja w rogu ekranu odpowiada na pytania o mnie (przez Gemini Flash, a bez sieci gotowymi tekstami).
 
-Potrzebujesz konta Cloudflare (Workers i Durable Objects działają w planie darmowym), Node.js 22+ i bota od [@BotFather](https://t.me/BotFather). Klucz Gemini (darmowe wiadomości i rozmowa na stronie) jest opcjonalny: bez niego działa tryb ręczny i własne klucze użytkowników.
+## Testerzy i VIP-y
+
+Wyślij mi `/id`, a dostaniesz swój numer konta z przyciskiem do skopiowania. Admin (numer w sekrecie `ADMIN_CHAT_IDS`) daje w czacie ze mną `/vip NUMER` (AI bez limitu), `/vip NUMER 50` (50 wiadomości więcej) albo `/unvip NUMER`. Samo `/vip` pokazuje listę. Daję znać każdemu, kto dostał więcej, a dzienny bezpiecznik kosztów pilnuje też VIP-ów.
+
+<details>
+<summary><b>Własny Otto: instalacja i rozwój (dla programistów)</b></summary>
+
+### Czego potrzebujesz
+
+Konta Cloudflare (Workers i Durable Objects działają w planie darmowym), Node.js 22+ i bota od [@BotFather](https://t.me/BotFather). Klucz Gemini (darmowe wiadomości i rozmowa na stronie) jest opcjonalny: bez niego działa tryb ręczny i własne klucze użytkowników.
 
 ### Lokalnie
 
@@ -51,7 +116,7 @@ cp .dev.vars.example .dev.vars    # DEV_DRY_RUN=1: nic nie wychodzi do Telegrama
 npm run dev                       # http://localhost:8787
 ```
 
-W trybie `DEV_DRY_RUN` wywołania Telegrama lądują w konsoli. Test dymny przechodzi całego bota (darmowe wiadomości, tryb ręczny, lista, przypomnienie z alarmem, klucz, `/zapomnij`) zmyślonymi aktualizacjami z Telegrama. Uzupełnij w `.dev.vars` wartości testowe (`TELEGRAM_WEBHOOK_SECRET=dev-secret`, `ADMIN_TOKEN=dev-admin`, `BOT_USERNAME=otto_dev_bot`, `KEY_SECRET`, `HASH_PEPPER`, dowolny `GEMINI_API_KEY`), a potem:
+W trybie `DEV_DRY_RUN` wywołania Telegrama lądują w konsoli. Test dymny przechodzi całego bota (darmowe wiadomości, tryb ręczny, lista, przypomnienie z alarmem, klucz, VIP, `/zapomnij`) zmyślonymi aktualizacjami z Telegrama. Uzupełnij w `.dev.vars` wartości testowe (`TELEGRAM_WEBHOOK_SECRET=dev-secret`, `ADMIN_TOKEN=dev-admin`, `BOT_USERNAME=otto_dev_bot`, `ADMIN_CHAT_IDS=777000`, `KEY_SECRET`, `HASH_PEPPER`, dowolny `GEMINI_API_KEY`), a potem:
 
 ```bash
 npm run dev > dev.log 2>&1 &
@@ -74,9 +139,9 @@ npx wrangler secret put GEMINI_API_KEY           # opcjonalnie
 curl -X POST https://TWOJ-ADRES/admin/setup -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
-`/admin/setup` ustawia webhook, komendy, opisy i zdjęcie profilowe bota. Naklejki z sześcioma minami Otta zakłada `POST /admin/stickers`, a do tego potrzeba `STICKER_OWNER_ID`, czyli numeru konta Telegram właściciela zestawu.
+`/admin/setup` ustawia webhook, komendy, opisy i zdjęcie profilowe bota, a adminom dodatkowe komendy w menu. Naklejki z sześcioma minami Otta zakłada `POST /admin/stickers`, a do tego potrzeba `STICKER_OWNER_ID`, czyli numeru konta Telegram właściciela zestawu.
 
-Ustawienia bez tajemnic (model Gemini, liczba darmowych wiadomości, dzienne bezpieczniki kosztów, strefa domyślna) są w `wrangler.jsonc`. Tam jest też własna domena (`routes`): u siebie wpisz swoją, ze strefy na tym samym koncie Cloudflare, albo usuń wpis, a Otto będzie działał pod adresem `workers.dev`.
+Ustawienia bez tajemnic (model Gemini i zapasowy, liczba darmowych wiadomości, dzienne bezpieczniki kosztów, strefa domyślna) są w `wrangler.jsonc`. Tam jest też własna domena (`routes`): u siebie wpisz swoją, ze strefy na tym samym koncie Cloudflare, albo usuń wpis, a Otto będzie działał pod adresem `workers.dev`.
 
 ### Przed startem
 
@@ -84,7 +149,7 @@ Ustawienia bez tajemnic (model Gemini, liczba darmowych wiadomości, dzienne bez
 2. **Polityka prywatności:** strona ma sekcję „Co Otto o Tobie wie”, ale publiczny bot potrzebuje też pełnej polityki (administrator danych, podstawa prawna, okresy przechowywania).
 3. **Koszty:** `DAILY_FREE_LIMIT` i `SITE_DAILY_LIMIT` to dzienne bezpieczniki darmowych wiadomości w bocie i na stronie.
 
-## Rozwój
+### Rozwój
 
 ```bash
 npm test           # parser terminów, lista, klucze, szyfrowanie, odpowiedzi modelu
@@ -92,10 +157,14 @@ npm run typecheck
 npm run assets     # naklejki, avatar, ikony i ilustracje WebP
 ```
 
-Jak to jest zbudowane: [docs/techniczne.md](docs/techniczne.md). Decyzje projektowe strony: [docs/strona.md](docs/strona.md). Ilustracje generuje Codex według [design/codex-ilustracje.md](design/codex-ilustracje.md).
+Jak to jest zbudowane: [docs/techniczne.md](docs/techniczne.md). Decyzje projektowe strony: [docs/strona.md](docs/strona.md). Ilustracje generuje Codex według [design/codex-ilustracje.md](design/codex-ilustracje.md). Grafiki do tego README to zrzuty prawdziwej strony (`docs/readme/`).
+
+</details>
 
 ## Licencja
 
-Kod: [Apache-2.0](LICENSE). Wyjątki i elementy cudze są w [NOTICE](NOTICE): font Urbanist (SIL OFL 1.1), Motion (MIT), generator kodów QR (MIT). Postać Otta oraz nazwa i znak Design House nie są objęte licencją.
+Kod: [Apache-2.0](LICENSE). Wyjątki i elementy cudze są w [NOTICE](NOTICE): font Urbanist (SIL OFL 1.1), Motion (MIT), generator kodów QR (MIT), logo Telegrama. Postać Otta oraz nazwa i znak Design House nie są objęte licencją.
 
-<p align="center"><a href="https://designhouse.me">Design House</a></p>
+<p align="center">
+  <a href="https://designhouse.me"><img src="public/img/design-house.svg" height="22" alt="Design House"></a>
+</p>
