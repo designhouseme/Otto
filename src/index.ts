@@ -1,9 +1,10 @@
 /**
  * Router Workera. Strona idzie prosto z `public/`, tu trafiają tylko:
- * /tg/webhook (Telegram), /admin/* i /telegram (przekierowanie do bota).
+ * /tg/webhook (Telegram), /api/ask (Otto na stronie), /admin/* i /telegram (przekierowanie do bota).
  */
 
 import { admin } from "./admin";
+import { ask } from "./site";
 import { sameSecret } from "./crypto";
 import type { Update } from "./telegram";
 
@@ -34,6 +35,7 @@ export default {
       return new Response("ok");
     }
 
+    if (url.pathname === "/api/ask") return ask(request, env);
     if (url.pathname.startsWith("/admin/")) return admin(request, env, url);
 
     if (url.pathname === "/telegram") {

@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Otto, asystent na Telegramie: przypomnienia i lista zadań</title>
+<meta name="description" content="Otto to osobisty asystent na Telegramie. Piszesz jak do znajomego, a Otto przypomina o czasie i prowadzi Twoją listę zadań. Za darmo, treść zostaje w Telegramie.">
+<meta property="og:title" content="Otto pamięta za Ciebie">
+<meta property="og:description" content="Przypomnienia i lista zadań w Telegramie. Piszesz jak do znajomego, Otto pilnuje reszty.">
+<meta property="og:image" content="/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FBF7EC">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/urbanist-latin.woff2" as="font" type="font/woff2" crossorigin>
+<script>document.documentElement.classList.add("js")</script>
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/vendor/motion.js" defer></script>
+<script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+
+<a class="skip" href="#tresc">Przejdź do treści</a>
+
+<header class="top">
+  <a class="brand" href="/" aria-label="Otto, strona główna">
+    <span class="brand-otto" data-otto="neutral" data-otto-still></span>
+    <span>Otto</span>
+  </a>
+  <nav class="top-nav" aria-label="Sekcje">
+    <a href="#jak">Jak dodać</a>
+    <a href="#cennik">Cennik</a>
+    <a href="#prywatnosc">Prywatność</a>
+  </nav>
+</header>
+
+<main id="tresc">
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <h1 id="hero-title">
+      <span class="h1-lead">Przypomnienia i lista zadań w Telegramie.</span>
+      <span class="h1-main">Otto pamięta za&nbsp;Ciebie.</span>
+    </h1>
+    <p class="lead">Piszesz do niego jak do znajomego, na przykład „jutro o 9 faktura dla Kowalskiego”. Otto przypomni o czasie i prowadzi Twoją listę. Treść zostaje w Telegramie.</p>
+    <div class="cta-row">
+      <a class="cta" href="/telegram" data-mood="wow">
+        Dodaj Otto na Telegramie
+        <span class="cta-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span>
+      </a>
+      <figure class="qr" aria-hidden="true">
+        <div class="qr-code" data-qr></div>
+        <figcaption>Na telefonie szybciej: zeskanuj aparatem.</figcaption>
+      </figure>
+    </div>
+    <p class="fine">Za darmo. Działa w Telegramie, którego już używasz.</p>
+  </div>
+
+  <div class="hero-stage">
+    <button class="hero-otto" type="button" data-open-chat aria-label="Porozmawiaj z Ottem">
+      <span class="otto-host" data-otto="neutral" data-otto-follow></span>
+      <span class="hero-bubble" aria-hidden="true">Cześć! Kliknij mnie, pogadamy.</span>
+    </button>
+    <figure class="cards">
+      <ol>
+        <li class="card card-rose" style="--tilt:-4deg">
+          <img src="/img/osoba-ola.webp" width="56" height="56" alt="">
+          <div><b>Ola</b><p>jutro o 9 przypomnij mi o fakturze</p></div>
+        </li>
+        <li class="card card-mint" style="--tilt:3deg">
+          <span class="card-otto" data-otto="happy" data-otto-still></span>
+          <div><b>Otto</b><p>⏰ Przypomnę jutro o 9:00.</p></div>
+        </li>
+        <li class="card card-lilac" style="--tilt:-2deg">
+          <img src="/img/osoba-marek.webp" width="56" height="56" alt="">
+          <div><b>Marek</b><p>dopisz: silikon, odebrać wiertarkę</p></div>
+        </li>
+      </ol>
+      <figcaption>Przykładowe rozmowy</figcaption>
+    </figure>
+    <img class="stamp stamp-hero" src="/img/stamp-budzik.webp" width="240" height="240" alt="">
+  </div>
+</section>
+
+<section id="jak" class="invite" aria-labelledby="jak-title">
+  <h2 id="jak-title">Jak zaprosić Otta do Telegrama</h2>
+  <ol class="steps">
+    <li>
+      <img src="/img/stamp-samolot.webp" width="160" height="160" alt="" loading="lazy">
+      <h3>Otwórz Otta</h3>
+      <p>Kliknij przycisk albo zeskanuj kod telefonem. Otworzy się Telegram.</p>
+    </li>
+    <li>
+      <span class="step-otto" data-otto="happy"></span>
+      <h3>Kliknij Start</h3>
+      <p>Otto się przywita i pokaże, co umie. Nie zakładasz żadnego konta.</p>
+    </li>
+    <li>
+      <img src="/img/stamp-budzik.webp" width="160" height="160" alt="" loading="lazy">
+      <h3>Napisz pierwszą rzecz</h3>
+      <p>Na przykład „w piątek o 15 przegląd auta”. Otto zapyta tylko, czy ustawić przypomnienie.</p>
+    </li>
+  </ol>
+  <div class="invite-actions">
+    <a class="cta" href="/telegram" data-mood="wow">
+      Dodaj Otto na Telegramie
+      <span class="cta-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span>
+    </a>
+    <a class="text-link" data-share href="https://t.me/share/url">Wyślij Otta znajomemu</a>
+  </div>
+</section>
+
+<section class="demo" aria-labelledby="demo-title">
+  <div class="demo-copy">
+    <h2 id="demo-title">Tak wygląda rozmowa</h2>
+    <ul class="can">
+      <li><b>Przypomina o każdej wiadomości.</b> Także o zdjęciu paragonu albo notatce głosowej.</li>
+      <li><b>Trzyma jedną listę,</b> przypiętą u góry czatu. Odhaczasz jednym kliknięciem.</li>
+      <li><b>Rozumie „jutro o 9”, „w piątek 15:30” i „za 2 h”</b> bez żadnego AI.</li>
+      <li><b>Z AI rozumie zwykłe zdania,</b> na przykład „po pracy przypomnij mi o oponach”.</li>
+    </ul>
+  </div>
+  <div class="phone-chat" data-demo aria-label="Przykładowa rozmowa w Telegramie">
+    <div class="msg msg-user" data-step>jutro o 9 przypomnij mi o fakturze</div>
+    <div class="msg msg-otto" data-step>
+      Ustawić tak?
+      <div class="kb">
+        <span class="kb-btn" data-press>⏰ Jutro o 9:00</span>
+        <span class="kb-row"><span class="kb-btn">Za godzinę</span><span class="kb-btn">Za 3 godziny</span></span>
+        <span class="kb-btn">📋 Dopisz do listy</span>
+      </div>
+    </div>
+    <div class="msg msg-otto" data-step>⏰ Przypomnę jutro o 9:00.</div>
+    <p class="chat-time" data-step>Następnego dnia, 9:00</p>
+    <div class="msg msg-otto" data-step>
+      <span class="quote">jutro o 9 przypomnij mi o fakturze</span>
+      ⏰ Przypominam o tym ↑
+      <div class="kb">
+        <span class="kb-row"><span class="kb-btn">+15 min</span><span class="kb-btn">+1 h</span><span class="kb-btn">Jutro 9:00</span></span>
+        <span class="kb-btn">✓ Zrobione</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="prompts" aria-labelledby="prompts-title">
+  <h2 id="prompts-title">Co możesz mu napisać</h2>
+  <p class="section-lead">Kliknij, a skopiujemy tekst i otworzymy Otta. Wystarczy go wkleić.</p>
+  <ul class="prompt-grid">
+    <li class="prompt prompt-rose" data-mood="look">
+      <img src="/img/stamp-budzik.webp" width="120" height="120" alt="" loading="lazy">
+      <p>w piątek o 15 przegląd auta</p>
+      <a class="prompt-btn" href="/telegram" target="_blank" rel="noopener" data-copy="w piątek o 15 przegląd auta">Skopiuj i otwórz Otta</a>
+    </li>
+    <li class="prompt prompt-mint" data-mood="look">
+      <img src="/img/stamp-lista.webp" width="120" height="120" alt="" loading="lazy">
+      <p>/dodaj mleko, chleb, baterie</p>
+      <a class="prompt-btn" href="/telegram" target="_blank" rel="noopener" data-copy="/dodaj mleko, chleb, baterie">Skopiuj i otwórz Otta</a>
+    </li>
+    <li class="prompt prompt-lilac" data-mood="look">
+      <img src="/img/stamp-kalendarz.webp" width="120" height="120" alt="" loading="lazy">
+      <p>12.11 urodziny mamy</p>
+      <a class="prompt-btn" href="/telegram" target="_blank" rel="noopener" data-copy="12.11 urodziny mamy">Skopiuj i otwórz Otta</a>
+    </li>
+    <li class="prompt prompt-sun" data-mood="look">
+      <img src="/img/stamp-samolot.webp" width="120" height="120" alt="" loading="lazy">
+      <p>za 20 minut wyjąć pranie</p>
+      <a class="prompt-btn" href="/telegram" target="_blank" rel="noopener" data-copy="za 20 minut wyjąć pranie">Skopiuj i otwórz Otta</a>
+    </li>
+  </ul>
+</section>
+
+<section id="cennik" class="plans" aria-labelledby="cennik-title" data-section-mood="happy">
+  <h2 id="cennik-title">Ile to kosztuje</h2>
+  <ul class="plan-list">
+    <li>
+      <span class="plan-price">0 zł</span>
+      <div>
+        <h3>Za darmo, zawsze</h3>
+        <p>Przypomnienia, lista, przyciski i terminy typu „jutro o 9”. Bez limitu.</p>
+      </div>
+    </li>
+    <li>
+      <img src="/img/stamp-koperta.webp" width="96" height="96" alt="" loading="lazy">
+      <div>
+        <h3>10 wiadomości AI za darmo</h3>
+        <p>Podajesz maila, wpisujesz kod z maila i piszesz do Otta zwykłymi zdaniami.</p>
+      </div>
+    </li>
+    <li>
+      <img src="/img/stamp-klucz.webp" width="96" height="96" alt="" loading="lazy">
+      <div>
+        <h3>AI bez limitu z własnym kluczem</h3>
+        <p>Wklejasz w czacie klucz Gemini, OpenAI, Anthropic albo OpenRouter. Najprościej darmowy klucz z Google AI Studio. Za użycie płacisz dostawcy, nie nam.</p>
+      </div>
+    </li>
+    <li class="plan-company">
+      <span class="plan-price">Firma</span>
+      <div>
+        <h3>Bot dla całego zespołu</h3>
+        <p>Wspólny asystent: projekty, raporty, integracje z Waszymi narzędziami. Robimy go w Design House.</p>
+        <a class="text-link" href="https://designhouse.me/automatyzacje">Porozmawiaj z Design House</a>
+      </div>
+    </li>
+  </ul>
+</section>
+
+<section id="prywatnosc" class="privacy" aria-labelledby="prywatnosc-title" data-section-mood="think">
+  <h2 id="prywatnosc-title">Co Otto o Tobie wie</h2>
+  <div class="privacy-cols">
+    <div>
+      <h3>Zapisujemy</h3>
+      <ul>
+        <li>numer czatu i strefę czasową,</li>
+        <li>licznik darmowych wiadomości AI,</li>
+        <li>przypomnienia jako numer wiadomości i godzinę, do chwili wysłania,</li>
+        <li>Twój klucz API, zaszyfrowany, jeśli go podasz,</li>
+        <li>mail tylko jako hash, a jawnie wyłącznie przy zgodzie na kontakt.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Nie zapisujemy</h3>
+      <ul>
+        <li>treści wiadomości ani historii rozmów,</li>
+        <li>listy zadań: to przypięta wiadomość w Twoim Telegramie,</li>
+        <li>imienia, nazwy użytkownika ani zdjęć.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="privacy-note">Gdy Otto używa AI, treść wiadomości trafia do dostawcy modelu (przy darmowych wiadomościach to Google Gemini). Telegram nie szyfruje rozmów z botami end-to-end. Komenda /zapomnij usuwa wszystko, co mamy.</p>
+</section>
+
+<section class="final" aria-labelledby="final-title">
+  <span class="final-otto" data-otto="wink"></span>
+  <h2 id="final-title">Otto już czeka w Telegramie</h2>
+  <a class="cta" href="/telegram" data-mood="wow">
+    Dodaj Otto na Telegramie
+    <span class="cta-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></svg></span>
+  </a>
+</section>
+
+</main>
+
+<footer class="foot">
+  <p>Otto to projekt <a href="https://designhouse.me">Design House</a>.</p>
+  <p><a href="#prywatnosc">Prywatność</a></p>
+</footer>
+
+<button class="fab" type="button" data-open-chat aria-label="Porozmawiaj z Ottem" aria-controls="chat" aria-expanded="false" hidden>
+  <span class="otto-host" data-otto="neutral" data-otto-follow></span>
+  <span class="fab-hint" aria-hidden="true">Pogadamy?</span>
+</button>
+
+<section id="chat" class="chat" role="dialog" aria-labelledby="chat-title" hidden>
+  <header class="chat-head">
+    <span class="chat-otto" data-otto="happy" data-otto-chat></span>
+    <div>
+      <h2 id="chat-title">Otto</h2>
+      <p>Odpowiadam od razu. Przypomnienia ustawisz w Telegramie.</p>
+    </div>
+    <button class="chat-close" type="button" data-close-chat aria-label="Zamknij rozmowę">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </header>
+  <ol class="chat-log" aria-live="polite"></ol>
+  <div class="chat-tiles"></div>
+  <form class="chat-form">
+    <label class="sr-only" for="chat-input">Napisz do Otta</label>
+    <input id="chat-input" name="q" maxlength="500" autocomplete="off" placeholder="Napisz do Otta…">
+    <button type="submit" aria-label="Wyślij">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg>
+    </button>
+  </form>
+</section>
+
+<div class="toast" role="status" aria-live="polite" hidden></div>
+
+</body>
+</html>
