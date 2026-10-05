@@ -1,8 +1,11 @@
 <h1 align="center">Otto</h1>
 
+<p align="center"><b>Osobisty asystent w Telegramie.</b> Przypomina o czasie, trzyma listę zadań i rozmawia jak znajomy.</p>
+
 <p align="center">
-  <b>Osobisty asystent w Telegramie.</b> Przypomina o czasie, trzyma listę zadań i rozmawia jak znajomy.<br>
-  <a href="https://t.me/HiOttoBot"><b>Napisz do @HiOttoBot</b></a> · <a href="https://otto.designhouse.me">otto.designhouse.me</a>
+  <a href="https://t.me/HiOttoBot"><img src="docs/readme/btn-telegram.png" height="56" alt="Napisz do Otta w Telegramie"></a>
+  &nbsp;
+  <a href="https://otto.designhouse.me"><img src="docs/readme/btn-site.png" height="56" alt="Zobacz stronę i rzuć Ottem"></a>
 </p>
 
 <p align="center">
@@ -15,25 +18,74 @@ Czarna kulka z dwoma oczami (to te dwa „O” w moim imieniu). Mieszkam w Teleg
 
 Piszesz do mnie jak do znajomego, na przykład „jutro o 9 przypomnij mi o fakturze”. Jutro o 9:00 odpowiadam na tę wiadomość, więc od razu widać, o co chodziło. Przy pierwszym `/start` pytam, jak mam się do Ciebie zwracać, jak pisać, do czego mam się przydać i w jakiej strefie czasowej jesteś. Każde pytanie można pominąć.
 
-Na [stronie](https://otto.designhouse.me) można mną rzucać, a mniejszy ja w rogu ekranu odpowiada na pytania o mnie.
+<p align="center">
+  <img src="docs/readme/hero.png" width="62%" alt="Otto na żółtym kole nad przykładowymi rozmowami: Ola prosi o przypomnienie o fakturze, Otto potwierdza, Marek dopisuje rzeczy do listy">
+</p>
+
+Na powitanie wysyłam naklejkę. Cały [zestaw moich min](https://t.me/addstickers/otto_by_HiOttoBot) możesz dodać do swojego Telegrama, a na [stronie](https://otto.designhouse.me) można mną rzucać.
+
+<p align="center">
+  <img src="public/stickers/neutral.webp" width="64" alt="Otto słucha">
+  <img src="public/stickers/look.webp" width="64" alt="Otto zerka">
+  <img src="public/stickers/think.webp" width="64" alt="Otto myśli">
+  <img src="public/stickers/happy.webp" width="64" alt="Otto się cieszy">
+  <img src="public/stickers/wink.webp" width="64" alt="Otto puszcza oko">
+  <img src="public/stickers/wow.webp" width="64" alt="Otto: wow">
+</p>
 
 ## Co umiem
 
-- **Przypominam o każdej wiadomości**, także o zdjęciu paragonu albo głosówce: odpowiedz na nią `/przypomnij jutro o 9`. Gdy przyjdzie pora, pod przypomnieniem są przyciski „+15 min”, „+1 h”, „Jutro 9:00” i „Zrobione”.
-- **Rozumiem terminy bez AI**: „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”, „jutro wieczorem”. Uwzględniam też zmianę czasu.
-- **Trzymam jedną listę zadań**, przypiętą u góry czatu. `/dodaj mleko, chleb` dopisuje, a zrobione odhaczasz przyciskiem z numerem.
-- **Rozmawiam**: „po pracy przypomnij mi o oponach” wystarczy, żebym sam ustawił przypomnienie albo dopisał coś do listy.
+<table>
+  <tr>
+    <td width="96"><img src="public/img/stamp-budzik.webp" width="88" alt=""></td>
+    <td><b>Przypominam o każdej wiadomości.</b> Także o zdjęciu paragonu albo głosówce: odpowiedz na nią <code>/przypomnij jutro o 9</code>. Gdy przyjdzie pora, pod przypomnieniem są przyciski „+15 min”, „+1 h”, „Jutro 9:00” i „Zrobione”.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-kalendarz.webp" width="88" alt=""></td>
+    <td><b>Rozumiem terminy bez AI.</b> „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”, „jutro wieczorem”. Uwzględniam też zmianę czasu.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-lista.webp" width="88" alt=""></td>
+    <td><b>Trzymam jedną listę zadań,</b> przypiętą u góry czatu. <code>/dodaj mleko, chleb</code> dopisuje, a zrobione odhaczasz przyciskiem z numerem.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-koperta.webp" width="88" alt=""></td>
+    <td><b>Rozmawiam.</b> „po pracy przypomnij mi o oponach” wystarczy, żebym sam ustawił przypomnienie albo dopisał coś do listy.</td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/readme/telegram.png" width="42%" alt="Makieta czatu z Ottem w Telegramie: prośba o przypomnienie, odpowiedź Otta, a następnego dnia przypomnienie z przyciskami drzemki">
+</p>
 
 ## Za darmo, z kluczem albo w abonamencie
 
-- **Zawsze za darmo:** przypomnienia, lista i komendy, bez limitu.
-- **10 wiadomości AI na start:** raz na konto Telegrama, bez maila i bez rejestracji.
-- **Własny klucz (`/klucz`):** rozmowa bez limitu z Gemini (najprościej darmowy klucz z Google AI Studio), OpenAI, Anthropic albo OpenRouter. Za użycie płacisz dostawcy klucza, nie nam. Wiadomość z kluczem kasuję od razu, a klucz trzymam zaszyfrowany.
-- **Abonament:** rozmowa bez limitu, bez klucza i bez konfiguracji. [Napisz do Design House](https://designhouse.me/kontakt): robią też boty dla całych zespołów.
+<table>
+  <tr>
+    <td width="96"><img src="public/img/stamp-prezent.webp" width="80" alt=""></td>
+    <td><b>Zawsze za darmo.</b> Przypomnienia, lista i komendy, bez limitu.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-samolot.webp" width="80" alt=""></td>
+    <td><b>10 wiadomości AI na start.</b> Raz na konto Telegrama, bez maila i bez rejestracji.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-klucz.webp" width="80" alt=""></td>
+    <td><b>Własny klucz (<code>/klucz</code>).</b> Rozmowa bez limitu z Gemini (najprościej darmowy klucz z Google AI Studio), OpenAI, Anthropic albo OpenRouter. Za użycie płacisz dostawcy klucza, nie nam. Wiadomość z kluczem kasuję od razu, a klucz trzymam zaszyfrowany.</td>
+  </tr>
+  <tr>
+    <td><img src="public/img/stamp-firma.webp" width="80" alt=""></td>
+    <td><b>Abonament.</b> Rozmowa bez limitu, bez klucza i bez konfiguracji. <a href="https://designhouse.me/kontakt">Napisz do Design House</a>: robią też boty dla całych zespołów.</td>
+  </tr>
+</table>
 
 ## Co o Tobie wiem
 
-Mniej, niż myślisz. Lista to wiadomość w Twoim Telegramie, a przypomnienie to dla mnie tylko numer wiadomości i godzina.
+Mniej, niż myślisz. Po lewej cała moja karta o Tobie, po prawej to, co zostaje tylko w Twoim Telegramie.
+
+<p align="center">
+  <img src="docs/readme/prywatnosc.png" width="100%" alt="Karta danych Otta w formie paragonu: numer czatu, strefa, licznik wiadomości, przypomnienie jako numer wiadomości i godzina, zaszyfrowany klucz, personalizacja. Obok czat z zakrytą treścią, która zostaje w Telegramie">
+</p>
 
 | Zapisuję | Nie zapisuję |
 |---|---|
@@ -104,7 +156,7 @@ npx wrangler secret put GEMINI_API_KEY           # opcjonalnie: bez niego dział
 curl -X POST https://TWOJ-ADRES/admin/setup -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
-`/admin/setup` ustawia webhook, komendy, opisy i zdjęcie profilowe bota, a adminom dodatkowe komendy w menu. Naklejki z minami Otta zakłada `POST /admin/stickers`; potrzebny jest do tego `STICKER_OWNER_ID`, czyli numer konta Telegram właściciela zestawu.
+`/admin/setup` ustawia webhook, komendy, opisy i zdjęcie profilowe bota, a adminom dodatkowe komendy w menu. Naklejki z minami Otta zakłada `POST /admin/stickers`; potrzebny jest do tego `STICKER_OWNER_ID`, czyli numer konta Telegram właściciela zestawu. Naklejki, avatar i ikony generuje `npm run assets` z geometrii Otta.
 
 Ustawienia bez tajemnic (model Gemini i zapasowy, liczba darmowych wiadomości, dzienne limity kosztów, domyślna strefa) są w `wrangler.jsonc`. Tam jest też domena (`routes`): wpisz swoją ze strefy na tym samym koncie Cloudflare albo usuń wpis, a Otto będzie działał pod adresem `workers.dev`.
 
