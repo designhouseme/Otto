@@ -12,7 +12,7 @@ Otto robi tyle, ile się da, narzędziami samego Telegrama. Lista zadań to przy
 - **Polskie terminy bez AI:** „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”.
 - **Lista zadań** przypięta u góry czatu. Odhaczasz jednym kliknięciem.
 - **Zwykłe zdania z AI**, np. „po pracy przypomnij mi o oponach”: 10 wiadomości za darmo po potwierdzeniu maila, a bez limitu z własnym kluczem (Gemini, OpenAI, Anthropic albo OpenRouter).
-- **Strona z Ottem**, z którym można porozmawiać. Odpowiada przez Gemini Flash, a bez sieci gotowymi odpowiedziami.
+- **Strona z Ottem**, którym można rzucać jak piłką i z którym można porozmawiać. Odpowiada przez Gemini Flash, a bez sieci gotowymi odpowiedziami.
 
 | Poziom | Co daje |
 |---|---|
