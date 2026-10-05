@@ -13,11 +13,11 @@ for (const mood of Object.keys(MOODS)) {
 }
 
 // Zdjęcie profilowe bota: Telegram przycina do koła, więc Otto ma zapas od krawędzi.
-await sharp(svg("neutral", { background: "#FFD21F", ring: "#151515", pad: 20 })).resize(640, 640).png().toFile("public/img/otto-avatar.png");
+await sharp(svg("neutral", { background: "#FFD21F", pad: 16 })).resize(640, 640).png().toFile("public/img/otto-avatar.png");
 
 // Mail (PNG, bo Gmail i Outlook nie pokazują SVG) i ikony.
 await sharp(svg("happy", { pad: 4 })).resize(144, 144).png().toFile("public/mail/otto.png");
-await sharp(svg("neutral", { background: "#FFD21F", ring: "#151515", pad: 14 })).resize(180, 180).png().toFile("public/apple-touch-icon.png");
+await sharp(svg("neutral", { background: "#FFD21F", pad: 12 })).resize(180, 180).png().toFile("public/apple-touch-icon.png");
 await sharp(svg("neutral", { pad: 2 })).resize(48, 48).png().toFile("public/favicon.png");
 writeFileSync("public/favicon.svg", ottoSvg("neutral", { pad: 2 }));
 

@@ -1,4 +1,4 @@
-// Otto jako SVG: ta sama geometria co postać na designhouse.me (siatka 120 × 120, dwie kapsuły oczu).
+// Otto jako SVG: sama kula z dwiema kapsułami oczu (siatka 120 × 120, geometria jak na designhouse.me).
 // Wspólne dla skryptu grafik (naklejki, avatar, mail) i dla strony (public/assets/otto.js ma kopię MOODS).
 
 export const MOODS = {
@@ -30,10 +30,10 @@ export const MOODS = {
 
 /**
  * @param {keyof MOODS} mood
- * @param {{ ring?: string, background?: string, pad?: number }} options
- *   ring: kolor obwódki (akcent produktu), background: tło pod Ottem (np. do avatara), pad: margines w jednostkach siatki
+ * @param {{ background?: string, pad?: number }} options
+ *   background: tło pod Ottem (np. do avatara), pad: margines w jednostkach siatki
  */
-export function ottoSvg(mood = "neutral", { ring = "#FFD21F", background, pad = 0 } = {}) {
+export function ottoSvg(mood = "neutral", { background, pad = 0 } = {}) {
   const view = 120 + pad * 2;
   const eyes = MOODS[mood]
     .map((e) => `<rect x="${e.x}" y="${e.y}" width="${e.w}" height="${e.h}" rx="${e.r}" fill="#fff"/>`)
@@ -48,7 +48,6 @@ export function ottoSvg(mood = "neutral", { ring = "#FFD21F", background, pad = 
     </radialGradient>
   </defs>
   ${background ? `<rect x="${-pad}" y="${-pad}" width="${view}" height="${view}" fill="${background}"/>` : ""}
-  <circle cx="60" cy="60" r="55" fill="none" stroke="${ring}" stroke-width="2.4" stroke-dasharray="6 10" stroke-linecap="round"/>
   <circle cx="60" cy="60" r="51" fill="url(#head)"/>
   <ellipse cx="44" cy="30" rx="18" ry="11" fill="url(#spec)"/>
   ${eyes}
