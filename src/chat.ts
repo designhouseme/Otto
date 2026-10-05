@@ -803,7 +803,8 @@ export class Chat extends DurableObject<Env> {
       const id = this.stickers[MOOD_ORDER.indexOf(mood)];
       if (id) await this.tg.call("sendSticker", { chat_id: s.chatId, sticker: id });
     } catch {
-      this.stickers = [];
+      // Zestawu jeszcze nie ma albo Telegram nie odpowiedział: nie zapamiętujemy porażki, następnym razem spróbujemy znowu.
+      this.stickers = null;
     }
   }
 }
