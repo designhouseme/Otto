@@ -163,9 +163,13 @@ const heroOtto = $(".hero-otto");
 fab.hidden = false;
 fab.style.opacity = "0";
 fab.style.pointerEvents = "none";
+fab.tabIndex = -1;
 new IntersectionObserver(([entry]) => {
   const show = !entry.isIntersecting;
   fab.style.pointerEvents = show ? "auto" : "none";
+  // Niewidoczny przycisk nie może łapać fokusu z klawiatury.
+  fab.tabIndex = show ? 0 : -1;
+  fab.toggleAttribute("aria-hidden", !show);
   if (reduce || !Motion) fab.style.opacity = show ? "1" : "0";
   else Motion.animate(fab, { opacity: show ? 1 : 0, transform: show ? "translateY(0px)" : "translateY(16px)" }, { duration: 0.3 });
 }).observe(heroOtto);
