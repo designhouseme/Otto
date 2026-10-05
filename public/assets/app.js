@@ -1,6 +1,7 @@
 // Strona Otta: Otto reaguje na to, co robisz, a w okienku czatu odpowiada na pytania.
 // Treść i przyciski działają bez JavaScriptu; tu jest tylko życie i rozmowa.
 import { Otto } from "./otto.js";
+import { makeThrowable } from "./toss.js";
 import qrcode from "./vendor/qrcode.mjs";
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -74,7 +75,11 @@ if (Motion?.inView) {
 
 // ---------- Wejście hero: jedna zaplanowana chwila ruchu ----------
 
-ottos.find((o) => $(".hero-otto").contains(o.host))?.drop(130);
+const heroOtto = ottos.find((o) => $(".toss-ball").contains(o.host));
+heroOtto?.drop(130);
+if (heroOtto) {
+  makeThrowable({ area: $(".hero"), body: $(".toss-body"), ball: $(".toss-ball"), bubble: $(".hero-bubble"), otto: heroOtto });
+}
 if (!reduce && Motion) {
   $$(".card").forEach((card, i) => {
     const tilt = parseFloat(getComputedStyle(card).getPropertyValue("--tilt")) || 0;
@@ -132,47 +137,64 @@ for (const link of $$("[data-copy]")) {
   });
 }
 
-// ---------- Rozmowa w sekcji „Tak wygląda rozmowa” ----------
+// ---------- Rozmowa w makiecie Telegrama ----------
 
 const demo = $("[data-demo]");
 if (demo && !reduce && Motion?.inView) {
   const steps = $$("[data-step]", demo);
   const pressed = $("[data-press]", demo);
+  const edited = $("[data-edit]", demo);
   for (const step of steps) step.style.opacity = "0";
   Motion.inView(
     demo,
     () => {
-      const at = [0, 0.9, 2.5, 3.5, 4.1];
+      const at = [0, 0.4, 1.3, 3.6, 4.2];
       steps.forEach((step, i) => {
         Motion.animate(
           step,
-          { opacity: [0, 1], transform: ["translateY(10px) scale(0.97)", "translateY(0px) scale(1)"] },
+          { opacity: [0, 1], transform: ["translateY(12px) scale(0.97)", "translateY(0px) scale(1)"] },
           { type: "spring", bounce: 0.3, duration: 0.55, delay: at[i] ?? i },
         );
       });
-      setTimeout(() => pressed?.classList.add("is-pressed"), 1900);
+      // Kliknięcie „Jutro o 9:00”, a bot edytuje swoją wiadomość i zdejmuje przyciski.
+      setTimeout(() => pressed?.classList.add("is-pressed"), 2400);
+      setTimeout(() => {
+        if (!edited) return;
+        $(".tg-text", edited).textContent = edited.dataset.edit;
+        $(".tg-meta", edited).textContent = "edytowano 18:24";
+        const keyboard = edited.nextElementSibling;
+        if (keyboard) Motion.animate(keyboard, { opacity: [1, 0], height: [`${keyboard.offsetHeight}px`, "0px"] }, { duration: 0.35 });
+      }, 2900);
     },
-    { amount: 0.45 },
+    { amount: 0.4 },
   );
 }
 
 // ---------- Otto w rogu ----------
 
+// To jedyne wejście do rozmowy na stronie. Na wąskim ekranie pokazuje się dopiero za hero,
+// żeby nie stał tuż obok dużego Otta, a na szerokim jest od początku.
 const fab = $(".fab");
-const heroOtto = $(".hero-otto");
 fab.hidden = false;
 fab.style.opacity = "0";
-fab.style.pointerEvents = "none";
-fab.tabIndex = -1;
-new IntersectionObserver(([entry]) => {
-  const show = !entry.isIntersecting;
+const narrow = matchMedia("(max-width: 719px)");
+let fabShown = null;
+function showFab(show) {
+  if (show === fabShown) return;
+  fabShown = show;
   fab.style.pointerEvents = show ? "auto" : "none";
-  // Niewidoczny przycisk nie może łapać fokusu z klawiatury.
   fab.tabIndex = show ? 0 : -1;
   fab.toggleAttribute("aria-hidden", !show);
   if (reduce || !Motion) fab.style.opacity = show ? "1" : "0";
-  else Motion.animate(fab, { opacity: show ? 1 : 0, transform: show ? "translateY(0px)" : "translateY(16px)" }, { duration: 0.3 });
-}).observe(heroOtto);
+  else Motion.animate(fab, { opacity: show ? 1 : 0, transform: show ? "translateY(0px)" : "translateY(16px)" }, { duration: 0.35 });
+}
+showFab(false);
+let heroVisible = true;
+new IntersectionObserver(([entry]) => {
+  heroVisible = entry.isIntersecting;
+  showFab(!(narrow.matches && heroVisible));
+}).observe($(".hero-otto"));
+narrow.addEventListener("change", () => showFab(!(narrow.matches && heroVisible)));
 
 // ---------- Czat z Ottem ----------
 

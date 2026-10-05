@@ -25,10 +25,12 @@
 <a class="skip" href="#tresc">Przejdź do treści</a>
 
 <header class="top">
-  <a class="brand" href="/" aria-label="Otto, strona główna">
-    <span class="brand-otto" data-otto="neutral" data-otto-still></span>
-    <span>Otto</span>
-  </a>
+  <div class="brand">
+    <a class="brand-dh" href="https://designhouse.me" aria-label="Design House">
+      <img src="/img/design-house.svg" width="152" height="19" alt="Design House">
+    </a>
+    <a class="brand-name" href="/">Otto</a>
+  </div>
   <nav class="top-nav" aria-label="Sekcje">
     <a href="#jak">Jak dodać</a>
     <a href="#cennik">Cennik</a>
@@ -59,10 +61,14 @@
   </div>
 
   <div class="hero-stage">
-    <button class="hero-otto" type="button" data-open-chat aria-label="Porozmawiaj z Ottem">
-      <span class="otto-host" data-otto="neutral" data-otto-follow></span>
-      <span class="hero-bubble" aria-hidden="true">Cześć! Kliknij mnie, pogadamy.</span>
-    </button>
+    <div class="hero-otto">
+      <div class="toss-body">
+        <span class="hero-bubble" aria-hidden="true">Złap mnie i rzuć!</span>
+        <button class="toss-ball" type="button" aria-label="Otto. Złap go i rzuć albo naciśnij Enter, a poleci.">
+          <span class="otto-host" data-otto="neutral" data-otto-follow></span>
+        </button>
+      </div>
+    </div>
     <figure class="cards">
       <ol>
         <li class="card card-rose" style="--tilt:-4deg">
@@ -122,27 +128,58 @@
       <li><b>Z AI rozumie zwykłe zdania,</b> na przykład „po pracy przypomnij mi o oponach”.</li>
     </ul>
   </div>
-  <div class="phone-chat" data-demo aria-label="Przykładowa rozmowa w Telegramie">
-    <div class="msg msg-user" data-step>jutro o 9 przypomnij mi o fakturze</div>
-    <div class="msg msg-otto" data-step>
-      Ustawić tak?
-      <div class="kb">
-        <span class="kb-btn" data-press>⏰ Jutro o 9:00</span>
-        <span class="kb-row"><span class="kb-btn">Za godzinę</span><span class="kb-btn">Za 3 godziny</span></span>
-        <span class="kb-btn">📋 Dopisz do listy</span>
+  <figure class="tg">
+    <img class="tg-badge" src="/img/telegram.svg" width="76" height="76" alt="Telegram">
+    <div class="tg-phone">
+      <div class="tg-screen">
+        <div class="tg-status" aria-hidden="true">
+          <span>9:41</span>
+          <svg viewBox="0 0 64 14"><path d="M1 10h3v3H1zM6 7h3v6H6zM11 4h3v9h-3zM16 1h3v12h-3z"/><path d="M27 5.5a9 9 0 0 1 12 0l-1.4 1.5a7 7 0 0 0-9.2 0zM30 8.6a5 5 0 0 1 6 0L33 12z"/><rect x="44" y="2" width="17" height="10" rx="3" fill="none" stroke="currentColor"/><rect x="46" y="4" width="12" height="6" rx="1.5"/><rect x="62" y="5.5" width="1.5" height="3" rx=".7"/></svg>
+        </div>
+        <div class="tg-head" aria-hidden="true">
+          <span class="tg-back"><svg viewBox="0 0 12 20"><path d="M10 2 2 10l8 8"/></svg>Czaty</span>
+          <span class="tg-title"><b>Otto</b><small>bot</small></span>
+          <img class="tg-avatar" src="/img/otto-avatar.png" width="38" height="38" alt="">
+        </div>
+        <div class="tg-pinned" aria-hidden="true">
+          <span><b>Przypięta wiadomość</b>📋 Twoja lista: 1. kupić mleko 2. odebrać paczkę</span>
+          <svg viewBox="0 0 24 24"><path d="M15 3l6 6-3 1-4 4 1 5-2 2-4-5-5 5H3v-1l5-5-5-4 2-2 5 1 4-4z"/></svg>
+        </div>
+        <div class="tg-chat" data-demo aria-label="Przykładowa rozmowa z Ottem">
+          <p class="tg-date" data-step>Dziś</p>
+          <div class="tg-msg tg-out" data-step>jutro o 9 przypomnij mi o fakturze<span class="tg-meta">18:24<svg viewBox="0 0 18 10" aria-label="przeczytane"><path d="M1 5.5 4 8.5 10.5 1.5M7 8.5l6.5-7"/></svg></span></div>
+          <div class="tg-group" data-step>
+            <div class="tg-msg tg-in" data-edit="⏰ Przypomnę jutro o 9:00.">
+              <span class="tg-quote"><b>Ty</b>jutro o 9 przypomnij mi o fakturze</span>
+              <span class="tg-text">Ustawić tak?</span><span class="tg-meta">18:24</span>
+            </div>
+            <div class="tg-kb">
+              <span class="tg-btn" data-press>⏰ Jutro o 9:00</span>
+              <span class="tg-row"><span class="tg-btn">Za godzinę</span><span class="tg-btn">Za 3 godziny</span></span>
+              <span class="tg-btn">📋 Dopisz do listy</span>
+            </div>
+          </div>
+          <p class="tg-date" data-step>Jutro</p>
+          <div class="tg-group" data-step>
+            <div class="tg-msg tg-in">
+              <span class="tg-quote"><b>Ty</b>jutro o 9 przypomnij mi o fakturze</span>
+              <span class="tg-text">⏰ Przypominam o tym ↑</span><span class="tg-meta">9:00</span>
+            </div>
+            <div class="tg-kb">
+              <span class="tg-row"><span class="tg-btn">+15 min</span><span class="tg-btn">+1 h</span><span class="tg-btn">Jutro 9:00</span></span>
+              <span class="tg-btn">✓ Zrobione</span>
+            </div>
+          </div>
+        </div>
+        <div class="tg-input" aria-hidden="true">
+          <span class="tg-menu"><svg viewBox="0 0 16 12"><path d="M1 1h14M1 6h14M1 11h14"/></svg>Menu</span>
+          <span class="tg-field">Wiadomość</span>
+          <svg class="tg-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
       </div>
     </div>
-    <div class="msg msg-otto" data-step>⏰ Przypomnę jutro o 9:00.</div>
-    <p class="chat-time" data-step>Następnego dnia, 9:00</p>
-    <div class="msg msg-otto" data-step>
-      <span class="quote">jutro o 9 przypomnij mi o fakturze</span>
-      ⏰ Przypominam o tym ↑
-      <div class="kb">
-        <span class="kb-row"><span class="kb-btn">+15 min</span><span class="kb-btn">+1 h</span><span class="kb-btn">Jutro 9:00</span></span>
-        <span class="kb-btn">✓ Zrobione</span>
-      </div>
-    </div>
-  </div>
+    <figcaption>Tak Otto wygląda w Telegramie. Przykładowa rozmowa.</figcaption>
+  </figure>
 </section>
 
 <section class="prompts" aria-labelledby="prompts-title">
@@ -176,9 +213,9 @@
   <h2 id="cennik-title">Ile to kosztuje</h2>
   <ul class="plan-list">
     <li>
-      <span class="plan-price">0 zł</span>
+      <img src="/img/stamp-prezent.webp" width="96" height="96" alt="" loading="lazy">
       <div>
-        <h3>Za darmo, zawsze</h3>
+        <h3>Za darmo, zawsze: 0 zł</h3>
         <p>Przypomnienia, lista, przyciski i terminy typu „jutro o 9”. Bez limitu.</p>
       </div>
     </li>
@@ -197,7 +234,7 @@
       </div>
     </li>
     <li class="plan-company">
-      <span class="plan-price">Firma</span>
+      <img src="/img/stamp-firma.webp" width="96" height="96" alt="" loading="lazy">
       <div>
         <h3>Bot dla całego zespołu</h3>
         <p>Wspólny asystent: projekty, raporty, integracje z Waszymi narzędziami. Robimy go w Design House.</p>
@@ -209,27 +246,48 @@
 
 <section id="prywatnosc" class="privacy" aria-labelledby="prywatnosc-title" data-section-mood="think">
   <h2 id="prywatnosc-title">Co Otto o Tobie wie</h2>
-  <div class="privacy-cols">
-    <div>
-      <h3>Zapisujemy</h3>
-      <ul>
-        <li>numer czatu i strefę czasową,</li>
-        <li>licznik darmowych wiadomości AI,</li>
-        <li>przypomnienia jako numer wiadomości i godzinę, do chwili wysłania,</li>
-        <li>Twój klucz API, zaszyfrowany, jeśli go podasz,</li>
-        <li>mail tylko jako hash, a jawnie wyłącznie przy zgodzie na kontakt.</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Nie zapisujemy</h3>
-      <ul>
-        <li>treści wiadomości ani historii rozmów,</li>
-        <li>listy zadań: to przypięta wiadomość w Twoim Telegramie,</li>
-        <li>imienia, nazwy użytkownika ani zdjęć.</li>
-      </ul>
+  <p class="section-lead">Mniej, niż myślisz. Po lewej cała karta, jaką Otto ma o Tobie. Po prawej to, co zostaje wyłącznie w Twoim Telegramie.</p>
+  <div class="privacy-grid">
+    <figure class="receipt">
+      <img class="receipt-stamp" src="/img/stamp-klodka.webp" width="112" height="112" alt="" loading="lazy">
+      <figcaption><b>Karta Otta o Tobie</b><span>Przykład, w całości</span></figcaption>
+      <dl>
+        <div><dt>Czat</dt><dd>nr 58•••••21</dd></div>
+        <div><dt>Strefa czasowa</dt><dd>Europe/Warsaw</dd></div>
+        <div><dt>Darmowe wiadomości AI</dt><dd>7 z 10</dd></div>
+        <div><dt>Przypomnienie</dt><dd>wiadomość nr 128, jutro 9:00</dd></div>
+        <div><dt>Klucz API</dt><dd>zaszyfrowany</dd></div>
+        <div><dt>Mail</dt><dd>hash 3f9a…c21e</dd></div>
+      </dl>
+      <p class="receipt-foot">To wszystko. Treści tu nie ma.</p>
+    </figure>
+    <div class="vault">
+      <h3>Zostaje w Twoim Telegramie</h3>
+      <div class="vault-chat" aria-hidden="true">
+        <span class="v-pin">📋 <i style="--w:62%"></i></span>
+        <span class="v-out"><i style="--w:78%"></i><i style="--w:46%"></i></span>
+        <span class="v-in"><i style="--w:64%"></i></span>
+        <span class="v-out v-photo"><i></i></span>
+        <span class="v-in"><i style="--w:52%"></i><i style="--w:70%"></i></span>
+      </div>
+      <p>Treść wiadomości, historia rozmów, lista zadań, zdjęcia i głosówki. Otto tego nie zapisuje.</p>
     </div>
   </div>
-  <p class="privacy-note">Gdy Otto używa AI, treść wiadomości trafia do dostawcy modelu (przy darmowych wiadomościach to Google Gemini). Telegram nie szyfruje rozmów z botami end-to-end. Komenda /zapomnij usuwa wszystko, co mamy.</p>
+  <ul class="facts">
+    <li>
+      <img src="/img/stamp-klucz.webp" width="88" height="88" alt="" loading="lazy">
+      <div><h3>Klucz pod kłódką</h3><p>Własny klucz API szyfrujemy, a wiadomość z nim znika z czatu od razu.</p></div>
+    </li>
+    <li>
+      <img src="/img/stamp-koperta.webp" width="88" height="88" alt="" loading="lazy">
+      <div><h3>Mail jako hash</h3><p>Jawny adres zapisujemy tylko wtedy, gdy zgodzisz się na kontakt.</p></div>
+    </li>
+    <li>
+      <img src="/img/stamp-gumka.webp" width="88" height="88" alt="" loading="lazy">
+      <div><h3>/zapomnij</h3><p>Jedna komenda w czacie usuwa wszystko, co o Tobie mamy.</p></div>
+    </li>
+  </ul>
+  <p class="privacy-note">Gdy Otto używa AI, treść wiadomości trafia do dostawcy modelu (przy darmowych wiadomościach to Google Gemini). Telegram nie szyfruje rozmów z botami end-to-end.</p>
 </section>
 
 <section class="final" aria-labelledby="final-title">

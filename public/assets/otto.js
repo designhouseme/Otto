@@ -5,7 +5,7 @@
 // - kształt oczu według miny (płynne przejście) i mruganie w nieregularnym rytmie,
 // - sprężyny: spojrzenie, pochylenie głowy, odblask na kuli (przesuwa się odwrotnie, więc kula wygląda na 3D),
 // - fizykę skoku: przysiad, wybicie z rozciągnięciem, lądowanie ze spłaszczeniem i drgnięciem,
-// - oddech, unoszenie, obracającą się obwódkę (szybciej, gdy myśli), mówienie i drzemkę z „z”.
+// - oddech, unoszenie, mówienie, wodzenie oczami przy myśleniu i drzemkę z „z”.
 // Przy prefers-reduced-motion zostają tylko miny i mruganie.
 
 export const MOODS = {
@@ -45,7 +45,6 @@ const BLINK = [
   { x: 66, y: 57, w: 16, h: 6, r: 3 },
 ];
 
-const RING_SPEED = { neutral: 14, happy: 34, look: 18, wink: 26, wow: 60, think: 150, sleepy: 4 };
 const GROUND = 111; // dół kuli: stąd liczymy spłaszczenie i przechył
 const GRAVITY = 1100;
 const reduce = matchMedia("(prefers-reduced-motion: reduce)");
@@ -103,9 +102,9 @@ export class Otto {
     this.nextZ = 0;
     this.jumpY = 0;
     this.vy = 0;
+    this.roll = 0; // obrót oczu przy toczeniu się (ustawia go public/assets/toss.js)
     this.hopAt = 0;
     this.hopPower = 0;
-    this.ringAngle = Math.random() * 360;
 
     // sprężyny
     this.glanceX = new Spring(0, 220, 24);
@@ -116,7 +115,6 @@ export class Otto {
     this.press = new Spring(0, 520, 30);
     this.land = new Spring(0, 380, 9); // słabo tłumiona: galaretowate drgnięcie po lądowaniu
     this.spin = new Spring(0, 90, 15);
-    this.ringSpeed = new Spring(RING_SPEED[this.mood], 40, 12);
 
     const id = `otto${++uid}`;
     host.innerHTML = `<svg viewBox="0 0 120 120" role="img" aria-label="Otto" overflow="visible">
@@ -126,7 +124,6 @@ export class Otto {
       </defs>
       ${this.still ? "" : `<ellipse class="o-shadow" cx="60" cy="116" rx="34" ry="4" fill="#151515" opacity=".12"/>`}
       <g class="o-pos"><g class="o-squash">
-        <circle class="o-ring" cx="60" cy="60" r="55" fill="none" stroke="#FFD21F" stroke-width="2.4" stroke-dasharray="6 10" stroke-linecap="round"/>
         <circle cx="60" cy="60" r="51" fill="url(#${id}h)"/>
         <ellipse class="o-spec" cx="44" cy="30" rx="18" ry="11" fill="url(#${id}s)"/>
         <g class="o-face"><rect fill="#fff"/><rect fill="#fff"/></g>
@@ -134,7 +131,7 @@ export class Otto {
       <g class="o-z" fill="#151515" font-family="Urbanist, system-ui, sans-serif" font-weight="800"></g>
     </svg>`;
     const q = (selector) => host.querySelector(selector);
-    this.el = { pos: q(".o-pos"), squash: q(".o-squash"), ring: q(".o-ring"), spec: q(".o-spec"), face: q(".o-face"), shadow: q(".o-shadow"), z: q(".o-z") };
+    this.el = { pos: q(".o-pos"), squash: q(".o-squash"), spec: q(".o-spec"), face: q(".o-face"), shadow: q(".o-shadow"), z: q(".o-z") };
     this.eyes = [...host.querySelectorAll(".o-face rect")];
 
     this.shape = this.shapeTarget();
@@ -151,7 +148,6 @@ export class Otto {
     if (!MOODS[mood] || mood === this.mood) return;
     const waking = this.mood === "sleepy";
     this.mood = mood;
-    this.ringSpeed.target = RING_SPEED[mood] ?? 14;
     this.tweenShape(260);
     if (waking) this.hop(0.6);
   }
@@ -183,6 +179,15 @@ export class Otto {
     if (reduce.matches || this.still) return;
     this.spin.target += 360;
     this.hop(1.2);
+  }
+
+  /**
+   * Uderzenie przy rzucaniu: dodatnie spłaszcza od podłogi, ujemne ściska z boków (ściana).
+   * Siła to prędkość zmiany kształtu, rozsądnie od -3 do 3.
+   */
+  impact(power) {
+    if (reduce.matches || this.still) return;
+    this.land.u += Math.max(-3.2, Math.min(3.2, power));
   }
 
   /** Mówienie: oczy pulsują, głowa lekko kiwa. Czas zależy od długości wypowiedzi. */
@@ -308,7 +313,7 @@ export class Otto {
       }
     }
 
-    for (const spring of [this.glanceX, this.glanceY, this.faceX, this.faceY, this.lean, this.press, this.land, this.spin, this.ringSpeed]) spring.step(dt);
+    for (const spring of [this.glanceX, this.glanceY, this.faceX, this.faceY, this.lean, this.press, this.land, this.spin]) spring.step(dt);
     if (Math.abs(this.spin.target - this.spin.v) < 0.5 && this.spin.target >= 360) {
       this.spin.target -= 360;
       this.spin.v -= 360;
@@ -319,7 +324,7 @@ export class Otto {
     const breath = Math.sin(t * ((2 * Math.PI) / (sleepy ? 4.6 : 3.4))) * (sleepy ? 0.022 : 0.011);
     const float = Math.sin(t * ((2 * Math.PI) / 5.2)) * (sleepy ? 1.2 : 3);
     const stretch = Math.max(-0.14, Math.min(0.14, -this.vy / 1500));
-    const squash = Math.max(-0.12, this.press.v + this.land.v);
+    const squash = Math.max(-0.16, Math.min(0.24, this.press.v + this.land.v));
     const talking = now < this.talkUntil;
     const sy = (1 + breath + stretch) * (1 - squash);
     const sx = (1 - breath * 0.5 - stretch * 0.6) * (1 + squash * 0.8);
@@ -328,11 +333,13 @@ export class Otto {
     this.el.pos.setAttribute("transform", `translate(0 ${y.toFixed(2)}) rotate(${(this.lean.v + this.spin.v).toFixed(2)} 60 ${GROUND})`);
     this.el.squash.setAttribute("transform", `translate(60 ${GROUND}) scale(${sx.toFixed(4)} ${sy.toFixed(4)}) translate(-60 -${GROUND})`);
 
-    // Obwódka, odblask, twarz
-    this.ringAngle = (this.ringAngle + this.ringSpeed.v * dt) % 360;
-    this.el.ring.setAttribute("transform", `rotate(${this.ringAngle.toFixed(2)} 60 60)`);
+    // Odblask i twarz
     this.el.spec.setAttribute("transform", `translate(${(-this.faceX.v * 0.9).toFixed(2)} ${(-this.faceY.v * 0.9).toFixed(2)})`);
-    this.el.face.setAttribute("transform", `translate(${this.faceX.v.toFixed(2)} ${this.faceY.v.toFixed(2)})`);
+    // Toczenie obraca tylko oczy wokół środka kuli; odblask zostaje, bo światło się nie przesuwa.
+    this.el.face.setAttribute(
+      "transform",
+      `rotate(${this.roll.toFixed(2)} 60 60) translate(${this.faceX.v.toFixed(2)} ${this.faceY.v.toFixed(2)})`,
+    );
     const talkScale = talking ? 0.78 + 0.22 * Math.abs(Math.cos(t * 17)) : 1;
     this.applyEyes(this.shape, talkScale, this.glanceX.v, this.glanceY.v);
 
