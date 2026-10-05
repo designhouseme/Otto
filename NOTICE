@@ -21,7 +21,10 @@ Zawiera oprogramowanie innych autorów:
   (public/assets/vendor/qrcode.mjs). „QR Code” jest zastrzeżonym znakiem
   DENSO WAVE INCORPORATED.
 - font Urbanist, Copyright 2021 The Urbanist Project Authors, SIL Open Font
-  License 1.1 (public/fonts/), https://openfontlicense.org
+  License 1.1 (public/fonts/, design/film/fonts/), https://openfontlicense.org
+- skrypty filmu (design/film/render.mjs, export.sh, check_film.py) i szablon kompozycji
+  ze skilla motion-design, Copyright 2026 Design House, licencja CC BY 4.0
+  (https://github.com/designhouseme/AdvancedSkills)
 
 Logo Telegrama (public/img/telegram.svg) jest znakiem Telegram FZ-LLC. Strona używa go
 tylko po to, żeby pokazać, gdzie działa Otto; licencja tego programu go nie obejmuje.

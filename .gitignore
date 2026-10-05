@@ -8,3 +8,6 @@ node_modules/
 design/ref/
 # Zrzuty ekranu z lokalnych testów
 brief/screenshots/
+
+# Rendery filmu (gotowe wersje trafiają do docs/)
+design/film/out/

@@ -17,6 +17,10 @@
   <img src="public/stickers/wow.webp" width="64" alt="Otto: wow">
 </p>
 
+<p align="center">
+  <img src="docs/film.webp" alt="Otto spada, łapie rzuconą myśl, a dwa „O” z jego imienia stają się jego oczami" width="80%">
+</p>
+
 ## Cześć, jestem Otto
 
 Jestem czarną kulką z dwoma oczami (to te dwa „O” w moim imieniu) i mieszkam w Telegramie. Piszesz do mnie jak do znajomego, na przykład „jutro o 9 przypomnij mi o fakturze”, a ja odpisuję jak znajomy i jutro o 9:00 przypominam, odpowiadając na Twoją wiadomość. Prowadzę też Twoją listę zadań, przypiętą u góry czatu. Na początku pytam, jak mam się do Ciebie zwracać i jak pisać (możesz pominąć).
@@ -160,6 +164,8 @@ npm test           # parser terminów, lista, klucze, szyfrowanie, odpowiedzi mo
 npm run typecheck
 npm run assets     # naklejki, avatar, ikony i ilustracje WebP
 ```
+
+Film o Otcie powstał z kodu skillem motion-design: źródło w [design/film/](design/film/), podgląd na żywo po otwarciu `design/film/index.html`, render przez `node render.mjs --src index.html --out film.mp4` w tym folderze (potrzeba Node 22+, ffmpeg i Chrome).
 
 Jak to jest zbudowane: [docs/techniczne.md](docs/techniczne.md). Decyzje projektowe strony: [docs/strona.md](docs/strona.md). Ilustracje generuje Codex według [design/codex-ilustracje.md](design/codex-ilustracje.md). Grafiki do tego README to zrzuty prawdziwej strony (`docs/readme/`).
 
