@@ -1,0 +1,24 @@
+Otto
+Copyright 2026 Design House (https://designhouse.me)
+
+This product includes software developed by Design House
+(https://designhouse.me).
+
+Ten program stworzyło Design House (https://designhouse.me). Zgodnie z sekcją 4
+licencji Apache 2.0 każda kopia i każda wersja zmieniona musi zachować ten plik
+NOTICE razem z informacją o autorstwie Design House.
+
+Nazwy „Design House” i „Otto”, wygląd postaci Otta (naklejki w public/stickers/,
+public/img/otto-avatar.png, public/mail/otto.png, public/favicon.*,
+public/apple-touch-icon.png, public/og.png) oraz znak i logo Design House nie są
+objęte licencją. Zgodnie z sekcją 6 licencja nie daje prawa do używania tych
+oznaczeń poza opisem pochodzenia programu.
+
+Zawiera oprogramowanie innych autorów:
+- Motion, Copyright (c) 2024 Motion B.V., licencja MIT (public/assets/vendor/motion.js,
+  tekst licencji w public/assets/vendor/MOTION-LICENSE.md)
+- qrcode-generator, Copyright (c) 2009 Kazuhiko Arase, licencja MIT
+  (public/assets/vendor/qrcode.mjs). „QR Code” jest zastrzeżonym znakiem
+  DENSO WAVE INCORPORATED.
+- font Urbanist, Copyright 2021 The Urbanist Project Authors, SIL Open Font
+  License 1.1 (public/fonts/), https://openfontlicense.org
