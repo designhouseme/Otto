@@ -18,6 +18,21 @@ export const T = {
   welcomeManual:
     "Działają przyciski i proste terminy, np. „jutro o 9” albo „w piątek 15:30”. Zwykłe zdania zrozumiem z własnym kluczem AI: /klucz",
   freeUsedStatus: "Darmowe wiadomości AI wykorzystane. Bez limitu z własnym kluczem: /klucz",
+  vipStatus: "AI bez limitu (VIP od Design House).",
+
+  // Numer konta i VIP
+  yourId: (id: number) => `Twój numer konta w Telegramie: ${id}\n\nPodaj go Design House, jeśli masz dostać więcej wiadomości AI do testów.`,
+  btnCopyId: "Kopiuj numer",
+  vipGranted: "🎉 Design House dał Ci AI bez limitu. Pisz do mnie zwykłymi zdaniami, ile chcesz.",
+  vipRemoved: "Twój dostęp VIP się skończył. Dalej działają przyciski i proste terminy, a bez limitu z własnym kluczem: /klucz",
+  messagesAdded: (n: number) => `🎉 Design House dorzucił Ci ${messages(n)} AI. Pisz do mnie zwykłymi zdaniami.`,
+  adminHelp:
+    "Komendy admina:\n/vip NUMER: AI bez limitu\n/vip NUMER 50: dorzuca 50 wiadomości\n/unvip NUMER: cofa VIP\n/vip: lista VIP-ów\n\nNumer konta ktoś sprawdza u siebie komendą /id.",
+  adminBadId: "Podaj numer konta, np. /vip 123456789. Ktoś sprawdza go u siebie komendą /id.",
+  adminBadAmount: "Liczba wiadomości od 1 do 1000, np. /vip 123456789 50.",
+  adminDone: (what: string, id: number, notified: boolean) =>
+    `✓ ${what} dla ${id}.${notified ? " Dałem mu znać." : " Nie mogłem do niego napisać: niech kliknie Start u Otta, a zmiana i tak już działa."}`,
+  adminVipList: (ids: number[]) => (ids.length ? `VIP-y (AI bez limitu):\n${ids.join("\n")}` : "Na razie nie ma VIP-ów."),
 
   help: (status: string) =>
     [
@@ -29,6 +44,7 @@ export const T = {
       "• /przypomnienia: co i kiedy przypomnę",
       "• /klucz: własny klucz AI, bez limitu",
       "• /strefa: strefa czasowa",
+      "• /id: Twój numer konta, np. dla testów",
       "• /zapomnij: usuwam Twoje dane",
       "",
       status,

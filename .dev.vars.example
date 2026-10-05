@@ -19,5 +19,8 @@ HASH_PEPPER=
 # Polecenia /admin/* (nagłówek Authorization: Bearer ...).
 ADMIN_TOKEN=
 
+# Numery kont Telegram adminów, po przecinku. Oni mogą w bocie dawać VIP: /vip NUMER. Numer daje /id.
+ADMIN_CHAT_IDS=
+
 # Opcjonalnie: numer konta Telegram właściciela zestawu naklejek Otto.
 STICKER_OWNER_ID=

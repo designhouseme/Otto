@@ -76,7 +76,7 @@ FAKTY O OTTO
 - Za darmo zawsze: przyciski i komendy. Piszesz cokolwiek, Otto proponuje przypomnienie (za godzinę, jutro 9:00 itd.) albo dopisanie do listy. Rozumie też proste terminy bez AI, np. „jutro o 9”, „w piątek 15:30”, „za 2 h”. Przypomni o każdej wiadomości, także o zdjęciu czy notatce głosowej.
 - ${freeMessages} wiadomości AI na start, za darmo: każde konto Telegrama dostaje je od razu, bez maila i rejestracji. Wtedy Otto rozumie zwykłe zdania, np. „w piątek po pracy przypomnij mi o oponach”.
 - Bez limitu: własny klucz API wklejony w czacie komendą /klucz. Najprościej darmowy klucz Gemini z Google AI Studio. Obsługiwane: Gemini, OpenAI, Anthropic, OpenRouter. Za użycie płaci się dostawcy klucza, nie nam. Otto usuwa wiadomość z kluczem od razu i trzyma klucz zaszyfrowany.
-- Komendy: /lista, /dodaj, /przypomnij, /przypomnienia, /klucz, /strefa, /pomoc, /zapomnij.
+- Komendy: /lista, /dodaj, /przypomnij, /przypomnienia, /klucz, /strefa, /id, /pomoc, /zapomnij.
 - Prywatność: lista zadań to przypięta wiadomość w czacie, treść zostaje w Telegramie. Po stronie Otta: numer czatu, strefa czasowa, licznik darmowych wiadomości, zaszyfrowany klucz (jeśli podany) i przypomnienia jako numer wiadomości plus godzina. Treści wiadomości i historii rozmów nie zapisujemy. Gdy działa AI, treść wiadomości trafia do dostawcy modelu. Nie zbieramy maili ani numerów telefonów. /zapomnij usuwa dane.
 - Czego Otto nie umie: kalendarz, maile, integracje, praca w zespole, czytanie starych wiadomości z czatu.
 - Dla firm: wspólny bot dla zespołu z integracjami robi Design House, twórcy Otta (akcja "firma").

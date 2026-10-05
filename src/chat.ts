@@ -26,6 +26,8 @@ interface State {
   freeLeft: number;
   claimed: boolean;
   key?: { provider: Provider; sealed: string; model?: string };
+  /** AI bez limitu na kluczu serwera, nadane przez admina (/vip). Dzienny bezpiecznik kosztów dalej działa. */
+  vip?: boolean;
   awaiting?: "key";
   listId?: number;
   manualCount: number;
@@ -62,7 +64,7 @@ export class Chat extends DurableObject<Env> {
     await this.enqueue(() => this.fire());
   }
 
-  private enqueue(job: () => Promise<void>) {
+  private enqueue<T>(job: () => Promise<T>) {
     const run = this.queue.then(job, job);
     this.queue = run.catch(() => {});
     return run;
@@ -130,6 +132,7 @@ export class Chat extends DurableObject<Env> {
     if (s.awaiting === "key") s.awaiting = undefined;
 
     if (text && s.key) return this.ai(s, msg, text, "own");
+    if (text && s.vip) return this.ai(s, msg, text, "vip");
     if (text && s.freeLeft > 0) return this.ai(s, msg, text, "free");
     return this.manual(s, msg, text);
   }
@@ -163,6 +166,15 @@ export class Chat extends DurableObject<Env> {
       case "anuluj":
         s.awaiting = undefined;
         return this.say(s, T.cancelled);
+      case "id":
+        return this.say(s, T.yourId(s.chatId), {
+          reply_markup: { inline_keyboard: [[{ text: T.btnCopyId, copy_text: { text: String(s.chatId) } }]] },
+        });
+      case "vip":
+      case "unvip":
+      case "admin":
+        if (this.isAdmin(s)) return this.adminCommand(s, name, arg);
+        return this.say(s, T.unknownCommand);
       case "zapomnij":
         return this.say(s, T.forgetAsk, {
           reply_markup: { inline_keyboard: [[{ text: "Tak, usuń wszystko", callback_data: "wipe" }, { text: "Nie", callback_data: "keep" }]] },
@@ -182,7 +194,9 @@ export class Chat extends DurableObject<Env> {
   private help(s: State) {
     const status = s.key
       ? `Klucz: ${PROVIDER_NAMES[s.key.provider]}, bez limitu.`
-      : s.freeLeft > 0
+      : s.vip
+        ? T.vipStatus
+        : s.freeLeft > 0
         ? `Darmowe wiadomości AI: ${s.freeLeft}.`
         : T.freeUsedStatus;
     return this.say(s, T.help(`${status} Strefa: ${s.tz}.`));
@@ -235,12 +249,12 @@ export class Chat extends DurableObject<Env> {
 
   // ---- AI ----
 
-  private async ai(s: State, msg: Message, text: string, mode: "own" | "free") {
+  private async ai(s: State, msg: Message, text: string, mode: "own" | "free" | "vip") {
     const env = this.env;
-    if (mode === "free") {
+    if (mode !== "own") {
       if (!env.GEMINI_API_KEY) return this.manual(s, msg, text);
       if (!(await this.registry().spend("bot", Number(env.DAILY_FREE_LIMIT)))) return this.manual(s, msg, text, T.poolEmpty);
-      s.freeLeft -= 1;
+      if (mode === "free") s.freeLeft -= 1;
     }
     this.tg.call("sendChatAction", { chat_id: s.chatId, action: "typing" }).catch(() => {});
 
@@ -265,8 +279,8 @@ export class Chat extends DurableObject<Env> {
       });
       plan = toBotPlan(raw);
     } catch (error) {
-      if (mode === "free") {
-        s.freeLeft += 1;
+      if (mode !== "own") {
+        if (mode === "free") s.freeLeft += 1;
         await this.refund("bot");
       }
       console.error("ai failed", error instanceof AiError ? error.kind : "unknown");
@@ -537,6 +551,69 @@ export class Chat extends DurableObject<Env> {
 
 
 
+  // ---- VIP: admin daje komuś więcej wiadomości ----
+
+  private isAdmin(s: State) {
+    return (this.env.ADMIN_CHAT_IDS ?? "").split(",").map((x) => x.trim()).includes(String(s.chatId));
+  }
+
+  private async adminCommand(s: State, name: string, arg: string) {
+    const [idText, amountText] = arg.split(/\s+/).filter(Boolean);
+    if (name === "admin" || (name === "vip" && !idText)) {
+      const ids = (await this.registry().vips()).map((v) => v.chat_id);
+      return this.say(s, `${T.adminVipList(ids)}\n\n${T.adminHelp}`);
+    }
+    const target = Number(idText);
+    if (!/^-?\d{5,15}$/.test(idText ?? "") || !Number.isSafeInteger(target)) return this.say(s, T.adminBadId);
+    let change: { vip?: boolean; add?: number };
+    let what: string;
+    if (name === "unvip") {
+      change = { vip: false };
+      what = "VIP cofnięty";
+    } else if (amountText !== undefined) {
+      const add = Number(amountText);
+      if (!Number.isInteger(add) || add < 1 || add > 1000) return this.say(s, T.adminBadAmount);
+      change = { add };
+      what = `Dorzucone ${add} wiadomości`;
+    } else {
+      change = { vip: true };
+      what = "AI bez limitu";
+    }
+    let result: { notified: boolean };
+    if (target === s.chatId) {
+      // Admin sam sobie: zmiana od razu w bieżącym stanie (wywołanie własnego obiektu zakleszczyłoby kolejkę).
+      if (change.vip !== undefined) s.vip = change.vip;
+      if (change.add) s.freeLeft += change.add;
+      result = { notified: true };
+    } else {
+      result = await this.env.CHAT.get(this.env.CHAT.idFromName(String(target))).grant(target, change);
+    }
+    if (change.vip !== undefined) await this.registry().setVip(target, change.vip);
+    return this.say(s, T.adminDone(what, target, result.notified));
+  }
+
+  /** Wywołuje obiekt rozmowy admina. Zmiana idzie przez kolejkę tego czatu, żeby nie ścigać się z jego wiadomościami. */
+  grant(chatId: number, change: { vip?: boolean; add?: number }) {
+    return this.enqueue(async () => {
+      const s = await this.load(chatId);
+      s.chatId = chatId;
+      // Ktoś, kto jeszcze nie pisał do Otta, i tak dostaje swoje darmowe na start.
+      if (!s.claimed) {
+        s.claimed = true;
+        s.freeLeft = (await this.registry().claimChat(await this.chatHash(s))) ? this.freeMessages() : 0;
+      }
+      if (change.vip !== undefined) s.vip = change.vip;
+      if (change.add) s.freeLeft += change.add;
+      await this.ctx.storage.put("state", s);
+      const text = change.add ? T.messagesAdded(change.add) : change.vip ? T.vipGranted : T.vipRemoved;
+      const notified = await this.tg.send(chatId, text).then(
+        () => true,
+        () => false,
+      );
+      return { notified };
+    }) as Promise<{ notified: boolean }>;
+  }
+
   // ---- darmowe wiadomości ----
 
   private freeMessages() {
@@ -595,6 +672,7 @@ export class Chat extends DurableObject<Env> {
   }
 
   private async forget(s: State, message?: Message) {
+    if (s.vip) await this.registry().setVip(s.chatId, false);
     await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
     this.schema();

@@ -1,6 +1,7 @@
 /**
  * Jeden wspólny obiekt dla całej instancji:
  * - które konta Telegrama odebrały już darmowe wiadomości AI (tylko hash numeru czatu),
+ * - lista VIP-ów z AI bez limitu (numery czatów nadane przez admina),
  * - dzienne bezpieczniki kosztów i limity zapytań ze strony.
  */
 
@@ -21,6 +22,7 @@ export class Registry extends DurableObject<Env> {
     );
     this.sql.exec("CREATE TABLE IF NOT EXISTS hits (key TEXT NOT NULL, at INTEGER NOT NULL)");
     this.sql.exec("CREATE INDEX IF NOT EXISTS hits_key ON hits (key, at)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS vips (chat_id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL)");
     // Pozostałość po wersji z mailem i zgodami na kontakt: tych danych już nie zbieramy.
     this.sql.exec("DROP TABLE IF EXISTS contacts");
   }
@@ -31,6 +33,15 @@ export class Registry extends DurableObject<Env> {
     if (this.sql.exec("SELECT 1 FROM claims WHERE id = ?", id).toArray().length) return false;
     this.sql.exec("INSERT INTO claims (id, created_at) VALUES (?, ?)", id, Date.now());
     return true;
+  }
+
+  setVip(chatId: number, on: boolean) {
+    if (on) this.sql.exec("INSERT INTO vips (chat_id, created_at) VALUES (?, ?) ON CONFLICT (chat_id) DO NOTHING", chatId, Date.now());
+    else this.sql.exec("DELETE FROM vips WHERE chat_id = ?", chatId);
+  }
+
+  vips() {
+    return this.sql.exec<{ chat_id: number; created_at: number }>("SELECT chat_id, created_at FROM vips ORDER BY created_at").toArray();
   }
 
   /** Zużywa jedną wiadomość z dziennej puli. false = pula na dziś się skończyła. */

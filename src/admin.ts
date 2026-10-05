@@ -16,7 +16,14 @@ const COMMANDS = [
   { command: "klucz", description: "Własny klucz AI, bez limitu" },
   { command: "strefa", description: "Strefa czasowa" },
   { command: "pomoc", description: "Co umiem" },
+  { command: "id", description: "Twój numer konta (np. do testów)" },
   { command: "zapomnij", description: "Usuń moje dane" },
+];
+
+// Admini widzą w menu dodatkowo swoje komendy (zakres: tylko ich czaty).
+const ADMIN_COMMANDS = [
+  { command: "vip", description: "Lista VIP-ów albo /vip NUMER [ile]" },
+  { command: "unvip", description: "Cofnij VIP: /unvip NUMER" },
 ];
 
 // Kolejność taka jak MOOD_ORDER w chat.ts: neutral, happy, look, wink, wow, think.
@@ -53,6 +60,11 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
       }),
     );
     await step("commands", () => tg.call("setMyCommands", { commands: COMMANDS }));
+    for (const id of (env.ADMIN_CHAT_IDS ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
+      await step(`commands_admin_${id}`, () =>
+        tg.call("setMyCommands", { commands: [...COMMANDS, ...ADMIN_COMMANDS], scope: { type: "chat", chat_id: Number(id) } }),
+      );
+    }
     await step("description", () =>
       tg.call("setMyDescription", {
         description:

@@ -36,12 +36,17 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 | `chatId`, `tz` | gdzie i w jakiej strefie |
 | `freeLeft`, `claimed` | darmowe wiadomości AI (przy pierwszym kontakcie `FREE_MESSAGES`, jeśli rejestr nie zna jeszcze tego konta) |
 | `key` | `{ provider, sealed, model }`; `sealed` to AES-GCM z `KEY_SECRET`, z numerem czatu jako danymi powiązanymi |
+| `vip` | AI bez limitu na kluczu serwera, nadane przez admina (`/vip NUMER`) |
 | `awaiting` | czekamy na klucz po `/klucz` |
 | `listId` | numer przypiętej wiadomości z listą |
 
 Tabela `reminders (id, msg_id, at)`: tylko numer wiadomości i godzina. Obiekt ma jeden alarm, zawsze ustawiony na najbliższe przypomnienie. Po wysłaniu wiersz znika.
 
-**`Registry`**: `claims` (hash numeru czatu `c:…`: darmowe wiadomości raz na konto, także po `/zapomnij`), `budget` (dzienne pule `bot` i `site`), `hits` (limity zapytań ze strony po hashu IP, sprzątane po dobie). Maili ani numerów telefonów nie zbieramy.
+**`Registry`**: `claims` (hash numeru czatu `c:…`: darmowe wiadomości raz na konto, także po `/zapomnij`), `budget` (dzienne pule `bot` i `site`), `hits` (limity zapytań ze strony po hashu IP, sprzątane po dobie), `vips` (numery czatów z VIP-em, do listy u admina). Maili ani numerów telefonów nie zbieramy.
+
+## VIP i testerzy
+
+`/id` podaje numer konta (z przyciskiem kopiowania). Admini to numery z sekretu `ADMIN_CHAT_IDS`; tylko oni widzą i mogą użyć `/vip` i `/unvip` (innym bot odpowiada jak na nieznaną komendę). Zmiana idzie przez obiekt rozmowy tej osoby (`grant`, w jego kolejce), a obdarowany dostaje wiadomość od Otta. VIP używa klucza serwera i dziennej puli `bot`, ale nie zużywa licznika. `/vip NUMER 50` tylko dorzuca wiadomości do licznika. `/admin/setup` ustawia adminom w menu dodatkowe komendy (zakres czatu).
 
 ## Lista w przypiętej wiadomości
 

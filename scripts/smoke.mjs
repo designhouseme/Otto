@@ -27,12 +27,14 @@ async function send(update) {
   await wait(700);
 }
 
-function message(text, extra = {}) {
+function message(text, extra = {}, chat = CHAT) {
   return {
     update_id: ++updateId,
-    message: { message_id: userMsgId++, date: Math.floor(Date.now() / 1000), chat: { id: CHAT, type: "private" }, from: { id: CHAT, first_name: "Test" }, text, ...extra },
+    message: { message_id: userMsgId++, date: Math.floor(Date.now() / 1000), chat: { id: chat, type: "private" }, from: { id: chat, first_name: "Test" }, text, ...extra },
   };
 }
+// Admin z .dev.vars (ADMIN_CHAT_IDS=777000)
+const ADMIN_CHAT = Number(process.env.ADMIN_CHAT ?? 777000);
 
 function callback(data, msg) {
   return { update_id: ++updateId, callback_query: { id: String(updateId), from: { id: CHAT, first_name: "Test" }, data, message: { chat: { id: CHAT, type: "private" }, date: 0, ...msg } } };
@@ -115,9 +117,21 @@ const fired = /Przypominam o tym/.test(logText());
 console.log(`${fired ? "✓" : "✗"} alarm wysłał przypomnienie jako odpowiedź na oryginał`);
 if (!fired) failures++;
 
+// --- numer konta i VIP ---
+await step("/id podaje numer i przycisk kopiowania", message("/id"), [new RegExp(`Twój numer konta w Telegramie: ${CHAT}`), /copy_text/]);
+await step("/vip bez uprawnień udaje nieznaną komendę", message(`/vip ${CHAT}`), [/Nie znam tej komendy/]);
+await step("admin: /vip NUMER", message(`/vip ${CHAT}`, {}, ADMIN_CHAT), [new RegExp(`AI bez limitu dla ${CHAT}`), /Design House dał Ci AI bez limitu/]);
+await step("VIP widzi status", message("/pomoc"), [/AI bez limitu \(VIP/]);
+await step("admin: lista VIP-ów", message("/vip", {}, ADMIN_CHAT), [new RegExp(`VIP-y \\(AI bez limitu\\):[^"]*${CHAT}`)]);
+await step("admin: /vip NUMER 5", message(`/vip ${CHAT} 5`, {}, ADMIN_CHAT), [/Dorzucone 5 wiadomości/, /dorzucił Ci 5 wiadomości AI/]);
+await step("admin: /unvip NUMER", message(`/unvip ${CHAT}`, {}, ADMIN_CHAT), [/VIP cofnięty/, /Twój dostęp VIP się skończył/]);
+await step("po /unvip zostają dorzucone wiadomości", message("/pomoc"), [/Darmowe wiadomości AI: 15/]);
+await step("admin sam sobie, bez zakleszczenia", message(`/vip ${ADMIN_CHAT}`, {}, ADMIN_CHAT), [new RegExp(`AI bez limitu dla ${ADMIN_CHAT}`)]);
+
 await step("/zapomnij", message("/zapomnij"), [/Usunę wszystko/]);
 await step("potwierdzenie", callback("wipe", { message_id: 4 }), [/nic już o Tobie nie wiem/]);
 await step("po /zapomnij darmowe wiadomości się nie odnawiają", message("/pomoc"), [/Darmowe wiadomości AI wykorzystane/]);
+await step("admin: cofnięcie VIP-a samemu sobie", message(`/unvip ${ADMIN_CHAT}`, {}, ADMIN_CHAT), [/VIP cofnięty/]);
 
 // Po /zapomnij obiekt żyje dalej: przypomnienie musi się dać ustawić od razu.
 await step("przypomnienie zaraz po /zapomnij", message("/przypomnij jutro o 9"), [/Przypomnę jutro o 9:00/]);

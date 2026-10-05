@@ -44,6 +44,7 @@ export interface Button {
   text: string;
   callback_data?: string;
   url?: string;
+  copy_text?: { text: string };
 }
 
 export interface Keyboard {

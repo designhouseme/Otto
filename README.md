@@ -35,7 +35,9 @@ Gdy Otto używa AI, treść wiadomości trafia do dostawcy modelu. Telegram nie 
 
 ## Komendy
 
-`/lista` · `/dodaj mleko, chleb` · `/przypomnij jutro o 9` (także w odpowiedzi na dowolną wiadomość) · `/przypomnienia` · `/klucz` · `/model` · `/strefa` · `/pomoc` · `/zapomnij`
+`/lista` · `/dodaj mleko, chleb` · `/przypomnij jutro o 9` (także w odpowiedzi na dowolną wiadomość) · `/przypomnienia` · `/klucz` · `/model` · `/strefa` · `/id` · `/pomoc` · `/zapomnij`
+
+**Testerzy i VIP-y.** Ktoś sprawdza swój numer konta komendą `/id`, a admin (numer w sekrecie `ADMIN_CHAT_IDS`) daje mu w bocie `/vip NUMER` (AI bez limitu na kluczu serwera), `/vip NUMER 50` (dorzuca 50 wiadomości) albo `/unvip NUMER`. Samo `/vip` pokazuje listę. Dzienny bezpiecznik kosztów działa też dla VIP-ów.
 
 ## Własna instancja
 
@@ -66,6 +68,7 @@ npx wrangler secret put TELEGRAM_WEBHOOK_SECRET  # długi losowy ciąg
 npx wrangler secret put KEY_SECRET               # długi losowy ciąg, raz na zawsze
 npx wrangler secret put HASH_PEPPER              # długi losowy ciąg, raz na zawsze
 npx wrangler secret put ADMIN_TOKEN              # długi losowy ciąg
+npx wrangler secret put ADMIN_CHAT_IDS           # numery kont adminów po przecinku (numer daje /id w bocie)
 npx wrangler secret put GEMINI_API_KEY           # opcjonalnie
 
 curl -X POST https://TWOJ-ADRES/admin/setup -H "Authorization: Bearer ADMIN_TOKEN"
