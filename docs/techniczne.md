@@ -67,7 +67,7 @@ Przypominając, Otto odpowiada na oryginalną wiadomość, więc treść widać 
 - Model zwraca JSON z odpowiedzią, przypomnieniami, wpisami do dopisania i numerami do odhaczenia. Kod sprawdza każde pole: przypomnienie w przeszłości albo za ponad rok przepada, najwyżej 3 na wiadomość.
 - Czas: model dostaje bieżącą godzinę i kalendarz na dwa tygodnie z dniami tygodnia (`calendar` w `src/time.ts`), bo licząc dni w pamięci myli piątek z czwartkiem. Przypomnienie podaje jako czas lokalny `RRRR-MM-DDTGG:MM` z tego kalendarza albo jako czas od teraz (`+20m`, `+2h`), który liczy już kod (`reminderAt`). W odpowiedzi nie podaje terminu: dokładny termin dopisuje aplikacja, więc nie ma dwóch wersji.
 - Lista i przypomnienia są osobno: to, co dostaje termin, nie trafia na listę, chyba że ktoś o to prosi. Dla tekstu (i transkrypcji) kod to pilnuje: przy przypomnieniu bez słowa o liście wpisy do listy przepadają.
-- Styl rozmowy z personalizacji (`Tone` w `src/prompts.ts`): serdecznie, rzeczowo, neutralnie albo na luzie; dawne „short” to rzeczowo.
+- Styl rozmowy z personalizacji (`Tone` w `src/prompts.ts`): serdecznie, rzeczowo, neutralnie albo na luzie; dawne „short” to rzeczowo. `/osobowosc` zmienia go jednym kliknięciem (przyciski `o:…`), a potwierdzenie jest już w nowym stylu.
 - Model nie ma żadnych narzędzi poza tym planem, więc wstrzyknięte polecenia w treści wiadomości nie mają czego nadużyć. Tak ma zostać.
 
 ## Głosówki i zdjęcia

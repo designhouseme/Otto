@@ -18,6 +18,7 @@ const COMMANDS = [
   { command: "klucz", description: "Własny klucz AI, bez limitu" },
   { command: "strefa", description: "Strefa czasowa" },
   { command: "pomoc", description: "Co umiem" },
+  { command: "osobowosc", description: "Mój styl: serdecznie, rzeczowo, neutralnie, na luzie" },
   { command: "ustawienia", description: "Jak mam się do Ciebie zwracać i jak pisać" },
   { command: "id", description: "Twój numer konta (np. do testów)" },
   { command: "zapomnij", description: "Usuń moje dane" },

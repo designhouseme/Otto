@@ -83,7 +83,10 @@ await step("personalizacja: imię", callback("p:go", { message_id: 1, text: "Zan
 await step("imię → wybór stylu (cztery)", message("Ola"), [/W jakim stylu mam z Tobą rozmawiać\?/, /"p:tone:warm"/, /"p:tone:technical"/, /"p:tone:neutral"/, /"p:tone:casual"/]);
 await step("styl → do czego", callback("p:tone:technical", { message_id: 2, text: "W jakim stylu mam z Tobą rozmawiać?" }), [/rozmawiać\? Rzeczowo, konkretnie/, /Do czego głównie mnie użyjesz/]);
 await step("do czego → gotowe, strefa polska bez pytania", callback("p:use:praca", { message_id: 3, text: "Do czego głównie mnie użyjesz?" }), [/Gotowe, Ola! Masz 10 wiadomości AI/, /w strefie: Polska \(Europe\/Warsaw\)/, /\/ustawienia/, /^(?![\s\S]*Gdzie jesteś)/]);
-await step("/pomoc pokazuje licznik i strefę", message("/pomoc"), [/Darmowe wiadomości AI: 10/, /Strefa: Polska \(Europe\/Warsaw\)/]);
+await step("/pomoc pokazuje licznik i strefę", message("/pomoc"), [/Darmowe wiadomości AI: 10/, /Strefa: Polska \(Europe\/Warsaw\)/, /\/osobowosc/]);
+await step("/osobowosc: cztery style, obecny z ptaszkiem", message("/osobowosc"), [/Jak mam z Tobą rozmawiać\? Teraz: Rzeczowo, konkretnie\./, /✓ Rzeczowo, konkretnie/, /"o:casual"/, /"o:warm"/]);
+await step("zmiana stylu jednym kliknięciem, potwierdzenie w nowym stylu", callback("o:casual", { message_id: 5, text: "Jak mam z Tobą rozmawiać?" }), [/editMessageText.*gadamy na luzie/]);
+await step("nowy styl widać od razu w /osobowosc", message("/osobowosc"), [/Teraz: Na luzie, z humorem\./, /✓ Na luzie, z humorem/]);
 await step("AI nie działa → zwykła odpowiedź, bez cytatu", message("kupić mleko"), [/Nie dogadałem się teraz z modelem/, /^(?![\s\S]*reply_parameters)/]);
 
 // --- głosówki i zdjęcia (udawany Telegram oddaje kilka bajtów, testowy klucz nie działa, więc licznik ma wrócić) ---

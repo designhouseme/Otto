@@ -37,6 +37,15 @@ export const T = {
   askName: "Jak mam się do Ciebie zwracać? Napisz imię albo ksywkę.",
   badName: "Napisz samo imię albo ksywkę (do 30 znaków) albo kliknij „Pomiń”.",
   askTone: "W jakim stylu mam z Tobą rozmawiać?",
+  personalityAsk: (current?: string) => `Jak mam z Tobą rozmawiać?${current ? ` Teraz: ${current}.` : ""}`,
+  // Każde potwierdzenie już w wybranym stylu
+  personalitySet: (tone: Tone) =>
+    ({
+      warm: "Od teraz piszę serdecznie i ciepło. Fajnie, że jesteś! 😊",
+      technical: "Styl: rzeczowy. Konkrety, bez ozdobników.",
+      neutral: "Dobrze. Od teraz piszę neutralnie.",
+      casual: "Luzik, od teraz gadamy na luzie! 😎",
+    })[tone],
   askUse: "Do czego głównie mnie użyjesz?",
   tzOther: "Inna strefa",
   tzOtherHint: "Wpisz swoją strefę, np. /strefa America/New_York",
@@ -59,7 +68,8 @@ export const T = {
       "• /lista: Twoja lista, przypięta u góry czatu",
       "• /przypomnienia: co i kiedy przypomnę",
       "• /klucz: własny klucz AI, bez limitu",
-      "• /ustawienia: jak mam się do Ciebie zwracać i jak pisać",
+      "• /osobowosc: mój styl (serdecznie, rzeczowo, neutralnie albo na luzie)",
+      "• /ustawienia: jak mam się do Ciebie zwracać, mój styl i do czego mnie używasz",
       "• /strefa, /id, /zapomnij",
       "",
       status,

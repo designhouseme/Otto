@@ -18,7 +18,7 @@ import { DurableObject } from "cloudflare:workers";
 import { AiError, KEY_PATTERN, checkKey, completeJson, defaultModel, detectProvider, type Media, type Provider, transcribe } from "./ai";
 import { peppered, seal, unseal } from "./crypto";
 import { type Attachment, MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES, attachmentOf, toBase64 } from "./media";
-import { type Profile, asksForList, botSystem, toBotPlan } from "./prompts";
+import { type Profile, asksForList, botSystem, toBotPlan, toneOf } from "./prompts";
 import type { BudgetKind } from "./registry";
 import { MAX_TASKS, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
@@ -156,6 +156,10 @@ export class Chat extends DurableObject<Env> {
         return this.start(s);
       case "ustawienia":
         return this.onboardAsk(s);
+      case "osobowosc":
+      case "osobowość":
+      case "styl":
+        return this.personality(s);
       case "pomoc":
       case "help":
         return this.help(s);
@@ -594,6 +598,13 @@ export class Chat extends DurableObject<Env> {
 
   // ---- przyciski ----
 
+  /** /osobowosc: zmiana stylu Otta jednym kliknięciem, bez całej personalizacji. Obecny styl ma ptaszek. */
+  private personality(s: State) {
+    const current = toneOf(s.profile);
+    const buttons = TONES.map(([id, label]) => ({ text: id === current ? `✓ ${label}` : label, callback_data: `o:${id}` }));
+    return this.say(s, T.personalityAsk(TONES.find(([id]) => id === current)?.[1]), { reply_markup: { inline_keyboard: [buttons.slice(0, 2), buttons.slice(2)] } });
+  }
+
   private async onCallback(s: State, q: CallbackQuery) {
     const [kind, a, ...rest] = (q.data ?? "").split(":");
     const b = rest.join(":");
@@ -604,6 +615,14 @@ export class Chat extends DurableObject<Env> {
       case "p":
         await this.onboardingCallback(s, a ?? "", b || undefined, message);
         break;
+      case "o": {
+        const pick = TONES.find(([id]) => id === a);
+        if (!pick) break;
+        s.profile = { ...s.profile, tone: pick[0] };
+        // Potwierdzenie już w nowym stylu, a przyciski znikają.
+        if (message) await this.edit(s, message.message_id, T.personalitySet(pick[0]));
+        break;
+      }
       case "r":
       case "z": {
         const now = Date.now();

@@ -23,7 +23,7 @@
 
 Czarna kulka z dwoma oczami (to te dwa „O” w moim imieniu). Mieszkam w Telegramie i każdy ma swojego Otta: rozmawiam tylko na czatach prywatnych, nie w grupach.
 
-Piszesz do mnie jak do znajomego, na przykład „jutro o 9 przypomnij mi o fakturze”. Jutro o 9:00 odpowiadam na tę wiadomość, więc od razu widać, o co chodziło. Przy pierwszym `/start` pytam, jak mam się do Ciebie zwracać, w jakim stylu rozmawiać (serdecznie, rzeczowo, neutralnie albo na luzie) i do czego mam się przydać. Każde pytanie można pominąć. Godziny liczę w polskiej strefie, a za granicą zmienisz ją przez `/strefa`.
+Piszesz do mnie jak do znajomego, na przykład „jutro o 9 przypomnij mi o fakturze”. Jutro o 9:00 odpowiadam na tę wiadomość, więc od razu widać, o co chodziło. Przy pierwszym `/start` pytam, jak mam się do Ciebie zwracać, w jakim stylu rozmawiać (serdecznie, rzeczowo, neutralnie albo na luzie) i do czego mam się przydać. Każde pytanie można pominąć, a styl zmienisz potem jednym kliknięciem przez `/osobowosc`. Godziny liczę w polskiej strefie, a za granicą zmienisz ją przez `/strefa`.
 
 <p align="center">
   <img src="docs/readme/hero.png" width="62%" alt="Otto na żółtym kole nad przykładowymi rozmowami: Ola prosi o przypomnienie o fakturze, Otto potwierdza, Marek dopisuje rzeczy do listy">
@@ -113,6 +113,7 @@ Gdy używam AI, treść wiadomości (także zdjęć i głosówek) trafia do dost
 /przypomnij jutro o 9 przypomnienie (działa też w odpowiedzi na dowolną wiadomość)
 /przypomnienia        co i kiedy przypomnę
 /klucz                własny klucz AI, bez limitu (/model zmienia model)
+/osobowosc            mój styl: serdecznie, rzeczowo, neutralnie albo na luzie
 /ustawienia           jak mam się do Ciebie zwracać i w jakim stylu
 /strefa               strefa czasowa
 /id                   Twój numer konta, np. dla testerów
