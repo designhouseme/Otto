@@ -16,6 +16,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import { AiError, KEY_PATTERN, checkKey, completeJson, defaultModel, detectProvider, type Media, type Provider, transcribe } from "./ai";
+import { cleanTitle, googleCalendarUrl, icsLink } from "./calendar";
 import { peppered, seal, unseal } from "./crypto";
 import { type Attachment, MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES, attachmentOf, toBase64 } from "./media";
 import { type Profile, asksForList, botSystem, toBotPlan, toneOf } from "./prompts";
@@ -142,7 +143,7 @@ export class Chat extends DurableObject<Env> {
     const attachment = attachmentOf(msg);
     const mode = this.aiMode(s);
     if ((text || attachment) && mode) return this.ai(s, msg, text, mode, attachment);
-    return this.commandMode(s, text, attachment);
+    return this.commandMode(s, msg, text, attachment);
   }
 
   private async command(s: State, msg: Message, text: string) {
@@ -302,14 +303,21 @@ export class Chat extends DurableObject<Env> {
 
   // ---- tryb komend: bez AI odpowiadamy krótką podpowiedzią, bez przycisków pod każdą wiadomością ----
 
-  private commandMode(s: State, text: string, attachment: Attachment | null = null) {
+  private async commandMode(s: State, msg: Message, text: string, attachment: Attachment | null = null) {
     if (!text && attachment) return this.say(s, T.commandMediaAi, { reply_markup: { inline_keyboard: this.upsellRows() } });
     if (!text) return this.say(s, T.commandMedia);
-    const at = parseWhen(text, Date.now(), s.tz);
+    const now = Date.now();
+    const at = parseWhen(text, now, s.tz);
     if (at) {
-      const command = `/przypomnij ${text}`.slice(0, 256);
-      return this.say(s, T.commandModeTime(formatWhen(at, Date.now(), s.tz)), {
-        reply_markup: { inline_keyboard: [[{ text: T.btnCopyCommand, copy_text: { text: command } }]] },
+      // Termin rozpoznany bez AI: przypomnienie jednym kliknięciem (o tej wiadomości) albo do kalendarza.
+      const when = formatWhen(at, now, s.tz);
+      return this.say(s, T.commandModeTime(when), {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: T.btnRemind(when), callback_data: `s:${msg.message_id}:${Math.floor(at / 1000)}` }],
+            await this.calendarRow(s, cleanTitle(text) || T.calendarTitle, at),
+          ],
+        },
       });
     }
     return this.say(s, T.commandMode, { reply_markup: { inline_keyboard: this.upsellRows() } });
@@ -429,12 +437,28 @@ export class Chat extends DurableObject<Env> {
     const now = Date.now();
     const target = msg.reply_to_message?.message_id ?? msg.message_id;
     const lines: string[] = [];
+    const set: number[] = [];
     for (const local of plan.reminders) {
       const at = reminderAt(local, now, s.tz);
       if (!at || at < now + 30_000 || at > now + 400 * DAY) continue;
       await this.addReminder(target, at);
+      set.push(at);
       lines.push(T.reminderSet(formatWhen(at, now, s.tz)));
     }
+    // Pod przypomnieniami „Dodaj do kalendarza”, a pod terminami, o które nikt nie prosił (np. ze zdjęcia faktury),
+    // przycisk „Przypomnij” i kalendarz. Termin z przycisku sprawdzamy jeszcze raz przy kliknięciu.
+    const suggested = plan.suggest
+      .map((v) => reminderAt(v, now, s.tz))
+      .filter((at): at is number => !!at && at > now + 60_000 && at < now + 400 * DAY && !set.some((x) => Math.abs(x - at) < 60_000))
+      .slice(0, 2);
+    const title = plan.title || cleanTitle(said) || T.calendarTitle;
+    const keyboard: Button[][] = [];
+    for (const at of set.slice(0, 2)) keyboard.push(await this.calendarRow(s, title, at, set.length > 1));
+    for (const at of suggested) {
+      keyboard.push([{ text: T.btnRemind(formatWhen(at, now, s.tz)), callback_data: `s:${target}:${Math.floor(at / 1000)}` }]);
+      keyboard.push(await this.calendarRow(s, title, at, suggested.length > 1));
+    }
+    const extra = keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {};
 
     // Lista i przypomnienia to osobne rzeczy, a model lubi dopisać na listę to, o czym ma przypomnieć.
     // Gdy ktoś napisał (albo powiedział) coś z terminem i nie prosił o listę, wpisy do listy pomijamy.
@@ -452,10 +476,21 @@ export class Chat extends DurableObject<Env> {
     const body = [plan.reply, lines.join("\n")].filter(Boolean).join("\n\n") || "👌";
     if (mode === "free" && s.freeLeft === 0) {
       // Ostatnia darmowa: odpowiedź, a osobno trzy drogi dalej.
-      await this.say(s, body);
+      await this.say(s, body, extra);
       return this.say(s, T.lastFree, { reply_markup: { inline_keyboard: this.upsellRows(true) } });
     }
-    return this.say(s, mode === "free" && s.freeLeft <= 2 ? `${body}\n\n${T.fewLeft(s.freeLeft)}` : body);
+    return this.say(s, mode === "free" && s.freeLeft <= 2 ? `${body}\n\n${T.fewLeft(s.freeLeft)}` : body, extra);
+  }
+
+  /**
+   * „Dodaj do kalendarza”: Google przez link prosto do Google, Apple i Outlook przez plik .ics z naszego linku,
+   * w którym tytuł i godzina są zaszyfrowane. Przy kilku terminach na przyciskach jest data.
+   */
+  private async calendarRow(s: State, title: string, at: number, dated = false): Promise<Button[]> {
+    const day = dated ? ` ${formatShort(at, s.tz).split(",")[0]}` : "";
+    const row: Button[] = [{ text: `${T.btnGoogle}${day}`, url: googleCalendarUrl(title, at) }];
+    if (this.env.KEY_SECRET && this.origin) row.push({ text: `${T.btnIcs}${day}`, url: await icsLink(this.origin, this.env.KEY_SECRET, title, at) });
+    return row;
   }
 
   // ---- lista zadań (przypięta wiadomość) ----
@@ -533,7 +568,8 @@ export class Chat extends DurableObject<Env> {
     const at = arg ? parseWhen(arg, now, s.tz) : null;
     if (at) {
       await this.addReminder(target, at);
-      return this.say(s, T.reminderSet(formatWhen(at, now, s.tz)));
+      const title = cleanTitle(arg) || cleanTitle(msg.reply_to_message?.text ?? msg.reply_to_message?.caption ?? "") || T.calendarTitle;
+      return this.say(s, T.reminderSet(formatWhen(at, now, s.tz)), { reply_markup: { inline_keyboard: [await this.calendarRow(s, title, at)] } });
     }
     // Termin do wybrania: przyciski muszą wskazywać, o którą wiadomość chodzi, więc tu odpowiadamy na nią.
     return this.say(s, arg ? T.notUnderstoodTime : T.remindWhen, {
@@ -615,6 +651,23 @@ export class Chat extends DurableObject<Env> {
       case "p":
         await this.onboardingCallback(s, a ?? "", b || undefined, message);
         break;
+      case "s": {
+        // „Przypomnij” spod propozycji: termin sprawdzamy jeszcze raz, bo przycisk mógł czekać godzinami.
+        const now = Date.now();
+        const at = Number(b) * 1000;
+        if (!Number.isFinite(at) || at < now + 30_000) {
+          toast = T.timePassed;
+          break;
+        }
+        await this.addReminder(Number(a), at);
+        if (message) {
+          // Tekst zostaje, dochodzi potwierdzenie; znika tylko ten przycisk, kalendarz zostaje.
+          const rows = (message.reply_markup?.inline_keyboard ?? []).map((row) => row.filter((btn) => btn.callback_data !== q.data)).filter((row) => row.length);
+          await this.edit(s, message.message_id, `${message.text ?? ""}\n\n${T.reminderSet(formatWhen(at, now, s.tz))}`.trim(), { inline_keyboard: rows });
+        }
+        toast = "Ustawione";
+        break;
+      }
       case "o": {
         const pick = TONES.find(([id]) => id === a);
         if (!pick) break;

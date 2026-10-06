@@ -83,7 +83,7 @@ export const T = {
 
   // Tryb komend (bez AI)
   commandMode: "Teraz działam na komendach, zwykłych zdań bez AI nie rozumiem. Na przykład:\n/przypomnij jutro o 9 faktura\n/dodaj mleko, chleb\n/lista",
-  commandModeTime: (when: string) => `Wygląda na przypomnienie ${when}. Ustawisz je komendą /przypomnij, gotową masz pod przyciskiem.`,
+  commandModeTime: (when: string) => `Wygląda na termin ${when}. Kliknij, a przypomnę o tej wiadomości, albo dodaj ją do kalendarza.`,
   commandMedia: "Żeby przypomnieć o tej wiadomości, odpowiedz na nią komendą, np. /przypomnij jutro o 9",
   commandMediaAi:
     "Zdjęcia i głosówki rozumiem, gdy działa AI, a teraz działam na komendach. Żeby przypomnieć o tej wiadomości, odpowiedz na nią komendą, np. /przypomnij jutro o 9.",
@@ -95,7 +95,6 @@ export const T = {
   fileTooBig: `Ten plik jest dla mnie za duży (do ${MAX_MEDIA_BYTES / 1024 / 1024} MB). Wyślij mniejszy albo napisz tekstem.`,
   mediaFailed: "Nie udało mi się pobrać tego pliku z Telegrama, ta wiadomość się nie liczy. Spróbuj jeszcze raz.",
   mediaModel: "Ten model nie przyjmuje zdjęć albo głosówek. Wybierz przez /model taki, który je rozumie, albo napisz tekstem.",
-  btnCopyCommand: "📋 Skopiuj komendę",
   lastFree: [
     "To była ostatnia z Twoich 10 darmowych wiadomości AI. Co dalej? Masz trzy drogi:",
     "• Komendy, zawsze za darmo: /przypomnij jutro o 9 faktura, /dodaj mleko, /lista",
@@ -108,6 +107,11 @@ export const T = {
 
   // Przypomnienia
   reminderSet: (when: string) => `⏰ Przypomnę ${when}.`,
+  // Kalendarz i przypomnienie jednym kliknięciem
+  btnRemind: (when: string) => `⏰ Przypomnij ${when}`,
+  btnGoogle: "📅 Google Kalendarz",
+  btnIcs: "📅 Apple, Outlook",
+  calendarTitle: "Przypomnienie od Otta",
   reminder: "⏰ Przypominam o tym ↑",
   reminderOrphan: "⏰ Miałem Ci o czymś przypomnieć, ale ta wiadomość została usunięta.",
   remindUsage: "Napisz, kiedy i o czym, np. /przypomnij jutro o 9 faktura. Możesz też odpowiedzieć tak na dowolną wiadomość, także na zdjęcie.",

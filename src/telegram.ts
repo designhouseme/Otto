@@ -50,6 +50,7 @@ export interface Message {
   document?: TgDocument;
   reply_to_message?: Message;
   pinned_message?: Message;
+  reply_markup?: Keyboard;
 }
 
 export interface CallbackQuery {

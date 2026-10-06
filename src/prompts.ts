@@ -33,6 +33,10 @@ const USE_LABELS: Record<string, string> = { praca: "pracy", dom: "spraw domowyc
 export interface BotPlan {
   reply: string;
   reminders: string[];
+  /** Terminy znalezione, ale bez prośby o przypomnienie: aplikacja pokazuje przycisk „Przypomnij” i kalendarz. */
+  suggest: string[];
+  /** Krótka nazwa sprawy do kalendarza, np. „Faktura za prąd”. */
+  title: string;
   add: string[];
   done: number[];
 }
@@ -46,9 +50,9 @@ Piszesz w języku użytkownika (zwykle po polsku), krótko: 1-3 zdania, bez nag�
     TONE_RULES[toneOf(profile) as Tone] ?? "Piszesz ciepło i życzliwie, najwyżej jedno emoji."
   } Nie używasz długich myślników.${profile?.name ? ` Zwracasz się do tej osoby: ${profile.name}.` : ""}${
     profile?.use && USE_LABELS[profile.use] ? ` Używa Cię głównie do ${USE_LABELS[profile.use]}.` : ""
-  } Nie wymyślasz faktów. Nie masz dostępu do internetu, kalendarza, maila ani innych aplikacji; jeśli ktoś o to prosi, mówisz wprost, że tego nie umiesz.
+  } Nie wymyślasz faktów. Nie masz dostępu do internetu, maila ani innych aplikacji i nie widzisz kalendarza tej osoby; jeśli ktoś o to prosi, mówisz wprost, że tego nie umiesz. Do kalendarza termin dodasz za to jednym kliknięciem: pod każdym przypomnieniem aplikacja sama daje przyciski Google, Apple i Outlook.
 
-Wiadomość może być głosówką albo zdjęciem (grafiką, zrzutem ekranu); oznacza je [głosówka], [zdjęcie] itp. Głosówkę traktuj jak napisany tekst tej osoby; gdy coś było niewyraźne, powiedz, czego nie dosłyszałeś. Ze zdjęcia odczytaj to, co ważne dla przypomnień i listy: terminy, kwoty, rzeczy do zrobienia, tekst z kartki. Gdy zdjęcie przyszło bez słowa, napisz krótko, co z niego wynika, i zaproponuj, co możesz z tym zrobić (np. przypomnieć przed terminem), ale niczego jeszcze nie ustawiaj. Nie mówisz, że coś zapisujesz albo zapamiętujesz: lista i przypomnienia zostają w Telegramie.
+Wiadomość może być głosówką albo zdjęciem (grafiką, zrzutem ekranu); oznacza je [głosówka], [zdjęcie] itp. Głosówkę traktuj jak napisany tekst tej osoby; gdy coś było niewyraźne, powiedz, czego nie dosłyszałeś. Ze zdjęcia odczytaj to, co ważne dla przypomnień i listy: terminy, kwoty, rzeczy do zrobienia, tekst z kartki. Gdy zdjęcie przyszło bez słowa, napisz krótko, co z niego wynika, a znaleziony termin podaj w suggest (aplikacja pokaże przycisk „Przypomnij” i kalendarz); niczego sam nie ustawiaj. Nie mówisz, że coś zapisujesz albo zapamiętujesz: lista i przypomnienia zostają w Telegramie.
 
 Teraz: ${WEEKDAYS[p.wd]}, ${p.y}-${pad(p.m)}-${pad(p.d)}, godzina ${pad(p.h)}:${pad(p.mi)} (strefa ${tz}).
 
@@ -61,12 +65,15 @@ Lista zadań użytkownika:
 ${list}
 ${replyTo ? `\nUżytkownik odpowiada na tę wiadomość:\n"""${replyTo.slice(0, 800)}"""\n` : ""}
 Odpowiadasz wyłącznie obiektem JSON:
-{"reply": "...", "reminders": ["RRRR-MM-DDTGG:MM", "+20m"], "add": ["..."], "done": [1]}
+{"reply": "...", "reminders": ["RRRR-MM-DDTGG:MM", "+20m"], "suggest": ["RRRR-MM-DDTGG:MM"], "title": "...", "add": ["..."], "done": [1]}
 
 - reminders: tylko gdy użytkownik prosi o przypomnienie albo podaje termin czegoś do zrobienia. Najwyżej 3. Każdy termin w jednej z dwóch postaci:
   - czas lokalny w strefie użytkownika "RRRR-MM-DDTGG:MM", z datą z kalendarza powyżej;
   - czas od teraz, gdy ktoś tak go podaje („za 20 minut”, „za 2 godziny”): "+20m" albo "+2h".
   Bez godziny: 09:00. „Rano” to 09:00, „w południe” 12:00, „po południu” 15:00, „wieczorem” 19:00. Sama godzina, która dziś już minęła, oznacza jutro. Nigdy w przeszłości.
+- suggest: termin, który znalazłeś (np. na zdjęciu albo w opisie spotkania), gdy ta osoba nie prosiła o przypomnienie. Ta sama postać co w reminders, najwyżej 2, nigdy to samo co w reminders. Przy płatności zaproponuj dzień przed terminem o 09:00.
+- title: krótka nazwa sprawy do kalendarza (2-6 słów, bez daty), np. „Faktura za prąd”, „Dentysta”. Gdy nie ma terminu: "".
+- Gdy ktoś prosi o dodanie czegoś do kalendarza, ustaw przypomnienie (reminders): przyciski kalendarza pojawią się pod nim same.
 - add: krótkie wpisy, tylko gdy ktoś wprost prosi o listę („dopisz”, „dodaj do listy”, „zanotuj”) albo podaje rzeczy bez terminu, np. zakupy. Każdy wpis osobno. Przypomnienie i lista to osobne rzeczy: to, co dostaje termin, nie trafia na listę.
 - done: numery wpisów z listy, które użytkownik właśnie skończył.
 - reply: nie podawaj daty ani godziny przypomnienia i nie powtarzaj treści listy. Aplikacja sama pokaże dokładny termin, więc dwie wersje by się rozjechały. Gdy pytanie dotyczy listy, odpowiedz na podstawie listy powyżej.
@@ -86,6 +93,8 @@ export function toBotPlan(raw: unknown): BotPlan {
   return {
     reply: typeof value.reply === "string" ? value.reply.trim().slice(0, 1500) : "",
     reminders: strings(value.reminders, 3),
+    suggest: strings(value.suggest, 2),
+    title: typeof value.title === "string" ? value.title.replace(/\s+/g, " ").trim().slice(0, 60) : "",
     add: strings(value.add, 10),
     done: Array.isArray(value.done) ? value.done.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 20) : [],
   };
@@ -120,7 +129,8 @@ FAKTY O OTTO
 - Bez limitu: własny klucz API wklejony w czacie komendą /klucz. Najprościej darmowy klucz Gemini z Google AI Studio. Obsługiwane: Gemini, OpenAI, Anthropic, OpenRouter. Za użycie płaci się dostawcy klucza, nie nam. Otto usuwa wiadomość z kluczem od razu i trzyma klucz zaszyfrowany.
 - Komendy: /lista, /dodaj, /przypomnij, /przypomnienia, /klucz, /osobowosc (styl Otta), /ustawienia, /strefa, /id, /pomoc, /zapomnij.
 - Prywatność: lista zadań to przypięta wiadomość w czacie, treść zostaje w Telegramie. Po stronie Otta: numer czatu, strefa czasowa, licznik darmowych wiadomości, zaszyfrowany klucz (jeśli podany), personalizacja (jak się zwracać, ton, do czego używa Otta; tylko jeśli ktoś ją poda) i przypomnienia jako numer wiadomości plus godzina. Treści wiadomości i historii rozmów nie zapisujemy. Gdy działa AI, treść wiadomości (także zdjęć i głosówek) trafia do dostawcy modelu. Nie zbieramy maili ani numerów telefonów. /zapomnij usuwa dane.
-- Czego Otto nie umie: kalendarz, maile, integracje, praca w zespole, czytanie starych wiadomości z czatu.
+- Kalendarz: pod każdym przypomnieniem są przyciski „Dodaj do kalendarza” (Google, Apple, Outlook), a gdy Otto znajdzie termin, np. na zdjęciu faktury, proponuje przycisk „Przypomnij”. Swojego kalendarza Otto nie czyta.
+- Czego Otto nie umie: czytać kalendarza ani maili, integracje, praca w zespole, czytanie starych wiadomości z czatu.
 - Abonament Design House: wiadomości AI bez limitu, bez własnego klucza i bez żadnej konfiguracji. Cen nie podajemy, szczegóły po kontakcie (akcja "firma"). Design House robi też boty dla całych zespołów.
 - Kod Otta jest otwarty, na GitHubie (akcja "github"). Każdy może postawić własnego Otta.
 - Na tej stronie nie ustawisz przypomnienia ani nie podasz klucza: to dzieje się w Telegramie. Nie proś o klucz w tym okienku.

@@ -46,10 +46,13 @@ describe("odpowiedzi modelu", () => {
     expect(toBotPlan({ reply: " Jasne ", reminders: ["2026-10-06T09:00", 5, ""], add: ["mleko"], done: [2, "x", -1] })).toEqual({
       reply: "Jasne",
       reminders: ["2026-10-06T09:00"],
+      suggest: [],
+      title: "",
       add: ["mleko"],
       done: [2],
     });
-    expect(toBotPlan(null)).toEqual({ reply: "", reminders: [], add: [], done: [] });
+    expect(toBotPlan(null)).toEqual({ reply: "", reminders: [], suggest: [], title: "", add: [], done: [] });
+    expect(toBotPlan({ suggest: ["2026-10-19T09:00", "a", "b"], title: "  Faktura   za prąd " })).toMatchObject({ suggest: ["2026-10-19T09:00", "a"], title: "Faktura za prąd" });
   });
 
   it("odpowiedź na stronie ma znaną minę i akcję", () => {

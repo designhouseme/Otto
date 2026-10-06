@@ -109,6 +109,16 @@ if (shortHash && listId) {
 }
 
 await step("/przypomnij bez niczego podpowiada", message("/przypomnij"), [/Napisz, kiedy i o czym/]);
+{
+  const out = await step("/przypomnij z terminem: pod potwierdzeniem kalendarz", message("/przypomnij jutro o 9 faktura"), [/Przypomnę jutro o 9:00/, /calendar\.google\.com\/calendar\/render\?action=TEMPLATE&text=Faktura/, /\/kalendarz\?e=/]);
+  const link = out.match(/"url":"(http[^"]*\/kalendarz\?e=[^"]+)"/)?.[1];
+  // wrangler dev podstawia nazwę domeny z produkcji, więc link pobieramy z lokalnego serwera
+  const ics = link ? await fetch(link.replace(/^https?:\/\/[^/]+/, BASE)) : null;
+  const body = ics ? await ics.text() : "";
+  const ok = ics?.status === 200 && /SUMMARY:Faktura/.test(body) && /DTSTART:\d{8}T\d{6}Z/.test(body);
+  console.log(`${ok ? "✓" : "✗"} plik .ics z linku pod przypomnieniem`);
+  if (!ok) failures++;
+}
 const soon = Math.floor(Date.now() / 1000) + 33;
 await step("przypomnienie z przycisku za ~33 s", callback(`r:${userMsgId - 1}:a${soon}`, { message_id: 2 }), [/Przypomnę dziś o/]);
 await step("/przypomnienia", message("/przypomnienia"), [/Zaplanowane przypomnienia/, /callback_data":"x:\d+"/]);
@@ -141,7 +151,17 @@ await step("admin sam sobie, bez zakleszczenia", message(`/vip ${ADMIN_CHAT}`, {
 await step("/zapomnij", message("/zapomnij"), [/Usunę wszystko/]);
 await step("potwierdzenie", callback("wipe", { message_id: 4 }), [/nic już o Tobie nie wiem/]);
 await step("po /zapomnij darmowe wiadomości się nie odnawiają", message("/pomoc"), [/Darmowe wiadomości AI wykorzystane/]);
-await step("tryb komend: termin → gotowa komenda do skopiowania", message("jutro o 9 faktura"), [/Wygląda na przypomnienie jutro o 9:00/, /copy_text":\{"text":"\/przypomnij jutro o 9 faktura"/]);
+{
+  const out = await step("tryb komend: termin → przycisk „Przypomnij” i kalendarz", message("jutro o 9 faktura"), [/Wygląda na termin jutro o 9:00/, /"callback_data":"s:\d+:\d+"/, /text=Faktura/, /\/kalendarz\?e=/]);
+  const data = out.match(/"callback_data":"(s:\d+:\d+)"/)?.[1];
+  const google = { text: "📅 Google Kalendarz", url: "https://calendar.google.com/calendar/render" };
+  await step(
+    "„Przypomnij”: potwierdzenie dochodzi do wiadomości, kalendarz zostaje",
+    callback(data ?? "s:0:0", { message_id: 4242, text: "Wygląda na termin jutro o 9:00.", reply_markup: { inline_keyboard: [[{ text: "⏰ Przypomnij", callback_data: data }], [google]] } }),
+    [/editMessageText.*Wygląda na termin jutro o 9:00\.\\n\\n⏰ Przypomnę jutro o 9:00/, /editMessageText.*calendar\.google\.com/, /^(?![\s\S]*editMessageText[^\n]*"callback_data":"s:)/],
+  );
+  await step("stara propozycja z minionym terminem", callback("s:1:1000000000", { message_id: 4243, text: "x" }), [/answerCallbackQuery.*(minął|minęło|już)/]);
+}
 await step("tryb komend: zwykły tekst → podpowiedź i trzy drogi", message("cześć Otto"), [/Teraz działam na komendach/, /Abonament: napisz do nas/, /designhouse\.me\/kontakt/]);
 await step("tryb komend: wiadomość bez tekstu → jak przypomnieć", message(undefined), [/odpowiedz na nią komendą/]);
 await step("tryb komend: głosówka → potrzebne AI, droga dalej", message(undefined, { voice: { file_id: "voice-3", duration: 5 } }), [/Zdjęcia i głosówki rozumiem, gdy działa AI/, /callback_data":"key"/, /^(?![\s\S]*getFile)/]);
