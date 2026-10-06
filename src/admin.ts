@@ -3,6 +3,8 @@
  *
  * POST /admin/setup     webhook, komendy, opisy i zdjęcie profilowe bota
  * POST /admin/stickers  zestaw naklejek Otta (potrzebny STICKER_OWNER_ID)
+ * POST /admin/vip       to samo co /vip w czacie, bez Telegrama: {"chat": NUMER} (AI bez limitu),
+ *                       {"chat": NUMER, "vip": false} (cofnięcie) albo {"chat": NUMER, "add": 50}
  */
 
 import { sameSecret } from "./crypto";
@@ -99,6 +101,19 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
         (error: Error) => error.message,
       );
     return Response.json({ stickers: result });
+  }
+
+  if (url.pathname === "/admin/vip" && request.method === "POST") {
+    const body = await request.json<{ chat?: unknown; vip?: unknown; add?: unknown }>().catch(() => null);
+    const chat = Number(body?.chat);
+    if (!/^-?\d{5,15}$/.test(String(body?.chat ?? "")) || !Number.isSafeInteger(chat)) return new Response("Podaj chat: numer konta z /id.", { status: 400 });
+    const add = body?.add;
+    if (add !== undefined && (!Number.isInteger(add) || (add as number) < 1 || (add as number) > 1000)) return new Response("add: od 1 do 1000.", { status: 400 });
+    const change = add !== undefined ? { add: add as number } : { vip: body?.vip !== false };
+    // Tak samo jak /vip: zmiana przez kolejkę obiektu tej rozmowy (z wiadomością do tej osoby) i wpis w rejestrze VIP-ów.
+    const result = await env.CHAT.get(env.CHAT.idFromName(String(chat))).grant(chat, change);
+    if (change.vip !== undefined) await env.REGISTRY.get(env.REGISTRY.idFromName("main")).setVip(chat, change.vip);
+    return Response.json({ chat, ...change, notified: result.notified });
   }
 
   return new Response("Nie ma takiego polecenia.", { status: 404 });
