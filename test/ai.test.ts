@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { KEY_PATTERN, audioFormat, buildRequest, completeJson, detectProvider, parseJson, transcribe } from "../src/ai";
 import { seal, unseal } from "../src/crypto";
-import { botSystem, toBotPlan, toSiteReply } from "../src/prompts";
+import { asksForList, botSystem, toBotPlan, toSiteReply } from "../src/prompts";
 
 describe("klucze", () => {
   it("rozpoznaje dostawcę", () => {
@@ -186,4 +186,17 @@ describe("instrukcja dla modelu", () => {
     expect(botSystem(NOW, "Europe/Warsaw", [], undefined, { tone: "warm" })).toContain("serdecznie i ciepło");
     expect(botSystem(NOW, "Europe/Warsaw", [])).toContain("ciepło i życzliwie");
   });
+});
+
+describe("prośba o listę", () => {
+  it.each([
+    ["dopisz do listy chleb", true],
+    ["dodaj mleko", true],
+    ["co mam na liście?", true],
+    ["zanotuj: oddać książkę", true],
+    ["przypomnij jutro i wrzuć na listę", true],
+    ["5 listopada przegląd auta", false],
+    ["w listopadzie urodziny mamy", false],
+    ["w piątek o 15:30 przegląd auta", false],
+  ])("%s → %s", (text, expected) => expect(asksForList(text)).toBe(expected));
 });

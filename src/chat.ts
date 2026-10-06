@@ -18,7 +18,7 @@ import { DurableObject } from "cloudflare:workers";
 import { AiError, KEY_PATTERN, checkKey, completeJson, defaultModel, detectProvider, type Media, type Provider, transcribe } from "./ai";
 import { peppered, seal, unseal } from "./crypto";
 import { type Attachment, MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES, attachmentOf, toBase64 } from "./media";
-import { type Profile, botSystem, toBotPlan } from "./prompts";
+import { type Profile, asksForList, botSystem, toBotPlan } from "./prompts";
 import type { BudgetKind } from "./registry";
 import { MAX_TASKS, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
@@ -434,7 +434,7 @@ export class Chat extends DurableObject<Env> {
 
     // Lista i przypomnienia to osobne rzeczy, a model lubi dopisać na listę to, o czym ma przypomnieć.
     // Gdy ktoś napisał (albo powiedział) coś z terminem i nie prosił o listę, wpisy do listy pomijamy.
-    if (plan.reminders.length && plan.add.length && said && !/dopis|dodaj|list|zanotuj|zapisz/i.test(said)) plan.add = [];
+    if (plan.reminders.length && plan.add.length && said && !asksForList(said)) plan.add = [];
 
     if (plan.add.length || plan.done.length) {
       const kept = list.tasks.filter((_, i) => !plan.done.includes(i + 1));
