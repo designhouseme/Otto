@@ -23,7 +23,7 @@
 
 Czarna kulka z dwoma oczami (to te dwa „O” w moim imieniu). Mieszkam w Telegramie i każdy ma swojego Otta: rozmawiam tylko na czatach prywatnych, nie w grupach.
 
-Piszesz do mnie jak do znajomego, na przykład „jutro o 9 przypomnij mi o fakturze”. Jutro o 9:00 odpowiadam na tę wiadomość, więc od razu widać, o co chodziło. Przy pierwszym `/start` pytam, jak mam się do Ciebie zwracać, jak pisać, do czego mam się przydać i w jakiej strefie czasowej jesteś. Każde pytanie można pominąć.
+Piszesz do mnie jak do znajomego, na przykład „jutro o 9 przypomnij mi o fakturze”. Jutro o 9:00 odpowiadam na tę wiadomość, więc od razu widać, o co chodziło. Przy pierwszym `/start` pytam, jak mam się do Ciebie zwracać, w jakim stylu rozmawiać (serdecznie, rzeczowo, neutralnie albo na luzie) i do czego mam się przydać. Każde pytanie można pominąć. Godziny liczę w polskiej strefie, a za granicą zmienisz ją przez `/strefa`.
 
 <p align="center">
   <img src="docs/readme/hero.png" width="62%" alt="Otto na żółtym kole nad przykładowymi rozmowami: Ola prosi o przypomnienie o fakturze, Otto potwierdza, Marek dopisuje rzeczy do listy">
@@ -57,7 +57,7 @@ Na powitanie wysyłam naklejkę. Cały [zestaw moich min](https://t.me/addsticke
   </tr>
   <tr>
     <td><img src="public/img/stamp-koperta.webp" width="88" alt=""></td>
-    <td><b>Rozmawiam.</b> „po pracy przypomnij mi o oponach” wystarczy, żebym sam ustawił przypomnienie albo dopisał coś do listy.</td>
+    <td><b>Rozmawiam, słucham i patrzę.</b> „po pracy przypomnij mi o oponach” wystarczy, żebym sam ustawił przypomnienie albo dopisał coś do listy. Możesz też nagrać głosówkę albo wysłać zdjęcie, np. faktury z podpisem „przypomnij dzień przed terminem”.</td>
   </tr>
 </table>
 
@@ -78,7 +78,7 @@ Na powitanie wysyłam naklejkę. Cały [zestaw moich min](https://t.me/addsticke
   </tr>
   <tr>
     <td><img src="public/img/stamp-klucz.webp" width="80" alt=""></td>
-    <td><b>Własny klucz (<code>/klucz</code>).</b> Rozmowa bez limitu z Gemini (najprościej darmowy klucz z Google AI Studio), OpenAI, Anthropic albo OpenRouter. Za użycie płacisz dostawcy klucza, nie nam. Wiadomość z kluczem kasuję od razu, a klucz trzymam zaszyfrowany.</td>
+    <td><b>Własny klucz (<code>/klucz</code>).</b> Rozmowa bez limitu z Gemini (najprościej darmowy klucz z Google AI Studio), OpenAI, Anthropic albo OpenRouter. Za użycie płacisz dostawcy klucza, nie nam. Wiadomość z kluczem kasuję od razu, a klucz trzymam zaszyfrowany. Zdjęcia rozumiem z każdym kluczem, głosówki z Gemini, OpenAI albo OpenRouter (gdy wybrany model przyjmuje dźwięk).</td>
   </tr>
   <tr>
     <td><img src="public/img/stamp-firma.webp" width="80" alt=""></td>
@@ -100,10 +100,10 @@ Mniej, niż myślisz. Po lewej cała moja karta o Tobie, po prawej to, co zostaj
 | licznik darmowych wiadomości AI | listy zadań (to przypięta wiadomość w Telegramie) |
 | przypomnienia jako numer wiadomości i godzinę, do chwili wysłania | nazwy użytkownika ani zdjęć |
 | klucz API, zaszyfrowany (AES-GCM), jeśli go podasz | maili ani numerów telefonów |
-| jak mam się do Ciebie zwracać i jak pisać, jeśli podasz | imienia z profilu Telegrama |
+| jak mam się do Ciebie zwracać i w jakim stylu, jeśli podasz | imienia z profilu Telegrama |
 | hash numeru czatu, żeby darmowe wiadomości były raz na konto | |
 
-Gdy używam AI, treść wiadomości trafia do dostawcy modelu. Telegram nie szyfruje rozmów z botami end-to-end. `/zapomnij` usuwa wszystko, co mam, poza hashem numeru czatu (bez niego darmowe wiadomości dałoby się odnawiać).
+Gdy używam AI, treść wiadomości (także zdjęć i głosówek) trafia do dostawcy modelu. Plików nie zapisuję: pobieram je z Telegrama tylko na czas jednej odpowiedzi. Telegram nie szyfruje rozmów z botami end-to-end. `/zapomnij` usuwa wszystko, co mam, poza hashem numeru czatu (bez niego darmowe wiadomości dałoby się odnawiać).
 
 ## Komendy
 
@@ -113,7 +113,7 @@ Gdy używam AI, treść wiadomości trafia do dostawcy modelu. Telegram nie szyf
 /przypomnij jutro o 9 przypomnienie (działa też w odpowiedzi na dowolną wiadomość)
 /przypomnienia        co i kiedy przypomnę
 /klucz                własny klucz AI, bez limitu (/model zmienia model)
-/ustawienia           jak mam się do Ciebie zwracać i jak pisać
+/ustawienia           jak mam się do Ciebie zwracać i w jakim stylu
 /strefa               strefa czasowa
 /id                   Twój numer konta, np. dla testerów
 /pomoc                co umiem i ile masz wiadomości
@@ -167,7 +167,7 @@ curl -X POST https://TWOJ-ADRES/admin/setup -H "Authorization: Bearer ADMIN_TOKE
 
 Ustawienia bez tajemnic (model Gemini i zapasowy, liczba darmowych wiadomości, dzienne limity kosztów, domyślna strefa) są w `wrangler.jsonc`. Tam jest też domena (`routes`): wpisz swoją ze strefy na tym samym koncie Cloudflare albo usuń wpis, a Otto będzie działał pod adresem `workers.dev`.
 
-**Testerzy i VIP-y.** Każdy dostaje swój numer konta przez `/id`. Admin daje w czacie z Ottem `/vip NUMER` (AI bez limitu), `/vip NUMER 50` (50 wiadomości więcej) albo `/unvip NUMER`, a samo `/vip` pokazuje listę. Obdarowany dostaje wiadomość od Otta, a dzienny limit kosztów obejmuje też VIP-ów.
+**Testerzy i VIP-y.** Każdy dostaje swój numer konta przez `/id`. Admin daje w czacie z Ottem `/vip NUMER` (AI bez limitu), `/vip NUMER 50` (50 wiadomości więcej) albo `/unvip NUMER`, a samo `/vip` pokazuje listę. To samo bez Telegrama: `POST /admin/vip` z `{"chat": NUMER}`, `{"chat": NUMER, "add": 50}` albo `{"chat": NUMER, "vip": false}`. Obdarowany dostaje wiadomość od Otta, a dzienny limit kosztów obejmuje też VIP-ów.
 
 **Zanim wypuścisz własnego Otta:**
 

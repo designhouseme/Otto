@@ -16,6 +16,27 @@ export interface TgChat {
   type: string;
 }
 
+/** Plik wysłany do bota. Rozmiar Telegram czasem pomija. */
+export interface TgFile {
+  file_id: string;
+  file_size?: number;
+}
+
+export interface TgPhotoSize extends TgFile {
+  width: number;
+  height: number;
+}
+
+export interface TgVoice extends TgFile {
+  duration: number;
+  mime_type?: string;
+}
+
+export interface TgDocument extends TgFile {
+  file_name?: string;
+  mime_type?: string;
+}
+
 export interface Message {
   message_id: number;
   date: number;
@@ -23,6 +44,10 @@ export interface Message {
   from?: TgUser;
   text?: string;
   caption?: string;
+  voice?: TgVoice;
+  audio?: TgVoice & { file_name?: string };
+  photo?: TgPhotoSize[];
+  document?: TgDocument;
   reply_to_message?: Message;
   pinned_message?: Message;
 }
@@ -101,6 +126,25 @@ export class Telegram {
       signal: AbortSignal.timeout(30_000),
     });
     return this.unwrap<T>(method, response);
+  }
+
+  /**
+   * Pobiera plik wysłany do bota: getFile, potem treść. Rozmiar sprawdzamy, zanim cokolwiek ściągniemy
+   * (Bot API i tak oddaje pliki tylko do 20 MB). Za duży: TgError z kodem 413. Z DEV_DRY_RUN: kilka udawanych bajtów.
+   */
+  async download(fileId: string, maxBytes: number): Promise<Uint8Array> {
+    if (this.dry) {
+      dryRun("getFile", { file_id: fileId });
+      return new TextEncoder().encode("dry-run");
+    }
+    const file = await this.call<{ file_path?: string; file_size?: number }>("getFile", { file_id: fileId });
+    if ((file.file_size ?? 0) > maxBytes) throw new TgError("getFile", 413, "file is too big");
+    if (!file.file_path) throw new TgError("getFile", 404, "no file_path");
+    const response = await fetch(`https://api.telegram.org/file/bot${this.token}/${file.file_path}`, { signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) throw new TgError("download", response.status, "download failed");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > maxBytes) throw new TgError("download", 413, "file is too big");
+    return bytes;
   }
 
   send(chatId: number, text: string, extra: Record<string, unknown> = {}) {

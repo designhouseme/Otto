@@ -5,6 +5,7 @@
  * zaszyfrowany klucz, numer przypiętej listy, przypomnienia jako (numer wiadomości, godzina)
  * i to, co ktoś sam podał przy personalizacji (jak się zwracać, jak pisać, do czego używa Otta).
  * Treść wiadomości zostaje w Telegramie: przypominając, Otto odpowiada na oryginał.
+ * Głosówki i zdjęcia pobieramy z Telegrama tylko na czas jednego zapytania do modelu.
  *
  * Otto odpowiada zwykłymi wiadomościami. Jedyna odpowiedź „na wiadomość” to samo przypomnienie,
  * bo tylko tak widać, czego dotyczy, skoro treści nie zapisujemy.
@@ -14,14 +15,15 @@
  */
 
 import { DurableObject } from "cloudflare:workers";
-import { AiError, KEY_PATTERN, checkKey, completeJson, defaultModel, detectProvider, type Provider } from "./ai";
+import { AiError, KEY_PATTERN, checkKey, completeJson, defaultModel, detectProvider, type Media, type Provider, transcribe } from "./ai";
 import { peppered, seal, unseal } from "./crypto";
+import { type Attachment, MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES, attachmentOf, toBase64 } from "./media";
 import { type Profile, botSystem, toBotPlan } from "./prompts";
 import type { BudgetKind } from "./registry";
 import { MAX_TASKS, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
-import { T, USES, ZONES } from "./texts";
-import { DAY, eveningLabel, formatShort, formatWhen, isValidTz, localIsoToUtc, parseWhen, presetAt } from "./time";
+import { T, TONES, USES, ZONES, zoneName } from "./texts";
+import { DAY, eveningLabel, formatShort, formatWhen, isValidTz, parseWhen, presetAt, reminderAt } from "./time";
 
 interface State {
   chatId: number;
@@ -137,9 +139,10 @@ export class Chat extends DurableObject<Env> {
     // Ktoś napisał coś innego niż klucz: wracamy do zwykłej rozmowy.
     if (s.awaiting === "key") s.awaiting = undefined;
 
+    const attachment = attachmentOf(msg);
     const mode = this.aiMode(s);
-    if (text && mode) return this.ai(s, msg, text, mode);
-    return this.commandMode(s, text);
+    if ((text || attachment) && mode) return this.ai(s, msg, text, mode, attachment);
+    return this.commandMode(s, text, attachment);
   }
 
   private async command(s: State, msg: Message, text: string) {
@@ -209,7 +212,7 @@ export class Chat extends DurableObject<Env> {
 
   private help(s: State) {
     const status = s.key ? T.statusKey(s.key.provider) : s.vip ? T.vipStatus : s.freeLeft > 0 ? T.statusFree(s.freeLeft) : T.freeUsedStatus;
-    return this.say(s, T.help(`${status} Strefa: ${s.tz}.`));
+    return this.say(s, T.help(`${status} Strefa: ${zoneName(s.tz)}.`));
   }
 
   // ---- personalizacja: cztery pytania, każde można pominąć ----
@@ -236,7 +239,7 @@ export class Chat extends DurableObject<Env> {
 
   private askTone(s: State) {
     return this.say(s, T.askTone, {
-      reply_markup: { inline_keyboard: [[{ text: T.toneShort, callback_data: "p:tone:short" }, { text: T.toneCasual, callback_data: "p:tone:casual" }]] },
+      reply_markup: { inline_keyboard: [0, 2].map((i) => TONES.slice(i, i + 2).map(([id, label]) => ({ text: label, callback_data: `p:tone:${id}` }))) },
     });
   }
 
@@ -245,17 +248,10 @@ export class Chat extends DurableObject<Env> {
     return this.say(s, T.askUse, { reply_markup: { inline_keyboard: [buttons.slice(0, 2), buttons.slice(2)] } });
   }
 
-  private askTz(s: State) {
-    const buttons = ZONES.map(([label, tz]) => ({ text: label, callback_data: `p:tz:${tz}` }));
-    return this.say(s, T.askTz, {
-      reply_markup: { inline_keyboard: [buttons.slice(0, 2), buttons.slice(2), [{ text: T.tzOther, callback_data: "p:tz:other" }]] },
-    });
-  }
-
   private async finishOnboarding(s: State, extra?: string) {
     s.onboarded = true;
     s.awaiting = undefined;
-    const text = T.onboardDone(s.profile?.name, this.modeLine(s));
+    const text = T.onboardDone(s.profile?.name, this.modeLine(s), zoneName(s.tz));
     return this.say(s, extra ? `${extra}\n\n${text}` : text);
   }
 
@@ -273,16 +269,20 @@ export class Chat extends DurableObject<Env> {
         s.awaiting = undefined;
         await answer("(pominięte)");
         return this.askTone(s);
-      case "tone":
-        if (value !== "short" && value !== "casual") return;
-        s.profile = { ...s.profile, tone: value };
-        await answer(value === "short" ? T.toneShort : T.toneCasual);
+      case "tone": {
+        // „short” to przycisk z dawnej wersji personalizacji (dziś: rzeczowo)
+        const pick = TONES.find(([id]) => id === (value === "short" ? "technical" : value));
+        if (!pick) return;
+        s.profile = { ...s.profile, tone: pick[0] };
+        await answer(pick[1]);
         return this.askUse(s);
+      }
       case "use":
         if (!value || !USES[value]) return;
         s.profile = { ...s.profile, use: value };
         await answer(USES[value]);
-        return this.askTz(s);
+        // O strefę już nie pytamy: domyślnie Polska, a za granicą zmienia się ją przez /strefa.
+        return this.finishOnboarding(s);
       case "tz": {
         if (value === "other") {
           await answer(T.tzOther);
@@ -298,7 +298,8 @@ export class Chat extends DurableObject<Env> {
 
   // ---- tryb komend: bez AI odpowiadamy krótką podpowiedzią, bez przycisków pod każdą wiadomością ----
 
-  private commandMode(s: State, text: string) {
+  private commandMode(s: State, text: string, attachment: Attachment | null = null) {
+    if (!text && attachment) return this.say(s, T.commandMediaAi, { reply_markup: { inline_keyboard: this.upsellRows() } });
     if (!text) return this.say(s, T.commandMedia);
     const at = parseWhen(text, Date.now(), s.tz);
     if (at) {
@@ -346,17 +347,33 @@ export class Chat extends DurableObject<Env> {
 
   // ---- AI ----
 
-  private async ai(s: State, msg: Message, text: string, mode: "own" | "free" | "vip") {
+  private async ai(s: State, msg: Message, text: string, mode: "own" | "free" | "vip", attachment: Attachment | null = null) {
     const env = this.env;
+    const provider: Provider = mode === "own" && s.key ? s.key.provider : "gemini";
+    // To, czego i tak nie obsłużymy, odrzucamy, zanim zużyjemy darmową wiadomość.
+    if (attachment) {
+      if (attachment.kind === "audio" && provider === "anthropic") return this.say(s, T.voiceAnthropic);
+      if (attachment.kind === "audio" && (attachment.seconds ?? 0) > MAX_AUDIO_SECONDS) return this.say(s, T.voiceTooLong);
+      if ((attachment.bytes ?? 0) > MAX_MEDIA_BYTES) return this.say(s, T.fileTooBig);
+    }
     if (mode !== "own") {
       if (!(await this.registry().spend("bot", Number(env.DAILY_FREE_LIMIT)))) return this.say(s, T.poolEmpty);
       if (mode === "free") s.freeLeft -= 1;
     }
+    const giveBack = async () => {
+      if (mode === "own") return;
+      if (mode === "free") s.freeLeft += 1;
+      await this.refund("bot");
+    };
     this.tg.call("sendChatAction", { chat_id: s.chatId, action: "typing" }).catch(() => {});
+    // Całość (pobranie pliku, transkrypcja, model) musi się zmieścić w ok. 30 s, które Worker ma po odpowiedzi Telegramowi.
+    const deadline = Date.now() + (attachment ? 24_000 : 20_000);
 
     const list = await this.readList(s);
     const replyTo = msg.reply_to_message?.text ?? msg.reply_to_message?.caption;
     let plan;
+    // Co ta osoba napisała albo powiedziała (tekst, podpis, transkrypcja); pusto, gdy model sam słucha głosówki.
+    let said = "";
     try {
       const call =
         mode === "own" && s.key
@@ -367,31 +384,57 @@ export class Chat extends DurableObject<Env> {
               fallbackModel: s.key.provider === "gemini" && !s.key.model ? env.GEMINI_FALLBACK_MODEL : undefined,
             }
           : { provider: "gemini" as const, key: env.GEMINI_API_KEY ?? "", model: env.GEMINI_MODEL, fallbackModel: env.GEMINI_FALLBACK_MODEL };
+      // Wiadomość dla modelu: tekst (albo podpis) oznaczony tym, co przyszło razem z nim.
+      let prompt = text.slice(0, 2000);
+      said = text;
+      const media: Media[] = [];
+      if (attachment) {
+        const bytes = await this.tg.download(attachment.fileId, MAX_MEDIA_BYTES);
+        if (attachment.kind === "audio" && call.provider === "openai") {
+          const heard = await transcribe(call.key, bytes, attachment.mime, Math.min(12_000, deadline - Date.now()));
+          if (!heard) {
+            await giveBack();
+            return this.say(s, T.voiceEmpty);
+          }
+          said = `${heard} ${text}`;
+          prompt = `[${attachment.label} zapisana tekstem]\n${heard.slice(0, 4000)}${prompt ? `\n[podpis] ${prompt}` : ""}`;
+        } else {
+          media.push({ kind: attachment.kind, mime: attachment.mime, data: toBase64(bytes) });
+          prompt = `[${attachment.label}]${prompt ? `\n${prompt}` : ""}`;
+        }
+      }
       const raw = await completeJson({
         ...call,
         system: botSystem(Date.now(), s.tz, list.tasks, replyTo, s.profile),
-        turns: [{ role: "user", text: text.slice(0, 2000) }],
-        timeoutMs: 20_000,
+        turns: [{ role: "user", text: prompt, media }],
+        timeoutMs: Math.max(5_000, deadline - Date.now()),
       });
       plan = toBotPlan(raw);
     } catch (error) {
-      if (mode !== "own") {
-        if (mode === "free") s.freeLeft += 1;
-        await this.refund("bot");
+      await giveBack();
+      console.error("ai failed", error instanceof AiError ? error.kind : error instanceof TgError ? `tg ${error.code}` : "unknown");
+      if (error instanceof TgError) return this.say(s, error.code === 413 ? T.fileTooBig : T.mediaFailed);
+      if (error instanceof AiError && error.kind === "auth" && mode === "own") return this.say(s, T.keyBroken);
+      // Wybrany model nie przyjmuje zdjęć albo dźwięku (OpenRouter, starsze modele): podpowiadamy /model.
+      if (attachment && error instanceof AiError && (error.kind === "unsupported" || (error.kind === "bad" && provider !== "gemini"))) {
+        return this.say(s, T.mediaModel);
       }
-      console.error("ai failed", error instanceof AiError ? error.kind : "unknown");
-      return this.say(s, error instanceof AiError && error.kind === "auth" && mode === "own" ? T.keyBroken : T.aiFailed);
+      return this.say(s, T.aiFailed);
     }
 
     const now = Date.now();
     const target = msg.reply_to_message?.message_id ?? msg.message_id;
     const lines: string[] = [];
     for (const local of plan.reminders) {
-      const at = localIsoToUtc(local, s.tz);
+      const at = reminderAt(local, now, s.tz);
       if (!at || at < now + 30_000 || at > now + 400 * DAY) continue;
       await this.addReminder(target, at);
       lines.push(T.reminderSet(formatWhen(at, now, s.tz)));
     }
+
+    // Lista i przypomnienia to osobne rzeczy, a model lubi dopisać na listę to, o czym ma przypomnieć.
+    // Gdy ktoś napisał (albo powiedział) coś z terminem i nie prosił o listę, wpisy do listy pomijamy.
+    if (plan.reminders.length && plan.add.length && said && !/dopis|dodaj|list|zanotuj|zapisz/i.test(said)) plan.add = [];
 
     if (plan.add.length || plan.done.length) {
       const kept = list.tasks.filter((_, i) => !plan.done.includes(i + 1));

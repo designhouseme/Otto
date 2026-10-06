@@ -17,14 +17,14 @@ let failures = 0;
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const logText = () => readFileSync(LOG, "utf8");
 
-async function send(update) {
+async function send(update, ms = 700) {
   const response = await fetch(`${BASE}/tg/webhook`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": SECRET },
     body: JSON.stringify(update),
   });
   if (!response.ok) throw new Error(`webhook ${response.status}`);
-  await wait(700);
+  await wait(ms);
 }
 
 function message(text, extra = {}, chat = CHAT) {
@@ -41,9 +41,9 @@ function callback(data, msg) {
 }
 
 /** Wysyła i zwraca nowe linie logu z wywołaniami Telegrama. */
-async function step(name, update, expect) {
+async function step(name, update, expect, ms) {
   const before = logText().length;
-  await send(update);
+  await send(update, ms);
   const out = logText().slice(before);
   const calls = out.split("\n").filter((l) => /\[tg\]|failed/.test(l));
   const ok = expect.every((re) => re.test(out));
@@ -80,12 +80,16 @@ const lastSentId = (out) => {
 // Testowy klucz Gemini nie działa, więc każda wiadomość AI kończy się zwykłą odpowiedzią „nie dogadałem się”, a licznik wraca.
 await step("/start proponuje personalizację", message("/start"), [/sendMessage.*Cześć, jestem Otto/, /Zanim zaczniemy/, /"p:go"/, /"p:skip"/]);
 await step("personalizacja: imię", callback("p:go", { message_id: 1, text: "Zanim zaczniemy" }), [/Jak mam się do Ciebie zwracać/]);
-await step("imię → pytanie o ton", message("Ola"), [/Jak mam pisać\?/, /"p:tone:casual"/]);
-await step("ton → do czego", callback("p:tone:casual", { message_id: 2, text: "Jak mam pisać?" }), [/Jak mam pisać\? Luźno, z emoji/, /Do czego głównie mnie użyjesz/]);
-await step("do czego → strefa", callback("p:use:praca", { message_id: 3, text: "Do czego głównie mnie użyjesz?" }), [/Gdzie jesteś/, /"p:tz:Europe\/Warsaw"/]);
-await step("strefa → gotowe", callback("p:tz:Europe/Warsaw", { message_id: 4, text: "Gdzie jesteś?" }), [/Gotowe, Ola! Masz 10 wiadomości AI/, /\/ustawienia/]);
-await step("/pomoc pokazuje licznik", message("/pomoc"), [/Darmowe wiadomości AI: 10/]);
+await step("imię → wybór stylu (cztery)", message("Ola"), [/W jakim stylu mam z Tobą rozmawiać\?/, /"p:tone:warm"/, /"p:tone:technical"/, /"p:tone:neutral"/, /"p:tone:casual"/]);
+await step("styl → do czego", callback("p:tone:technical", { message_id: 2, text: "W jakim stylu mam z Tobą rozmawiać?" }), [/rozmawiać\? Rzeczowo, konkretnie/, /Do czego głównie mnie użyjesz/]);
+await step("do czego → gotowe, strefa polska bez pytania", callback("p:use:praca", { message_id: 3, text: "Do czego głównie mnie użyjesz?" }), [/Gotowe, Ola! Masz 10 wiadomości AI/, /w strefie: Polska \(Europe\/Warsaw\)/, /\/ustawienia/, /^(?![\s\S]*Gdzie jesteś)/]);
+await step("/pomoc pokazuje licznik i strefę", message("/pomoc"), [/Darmowe wiadomości AI: 10/, /Strefa: Polska \(Europe\/Warsaw\)/]);
 await step("AI nie działa → zwykła odpowiedź, bez cytatu", message("kupić mleko"), [/Nie dogadałem się teraz z modelem/, /^(?![\s\S]*reply_parameters)/]);
+
+// --- głosówki i zdjęcia (udawany Telegram oddaje kilka bajtów, testowy klucz nie działa, więc licznik ma wrócić) ---
+await step("głosówka: pobranie z Telegrama i model", message(undefined, { voice: { file_id: "voice-1", duration: 6, mime_type: "audio/ogg", file_size: 24000 } }), [/getFile \{"file_id":"voice-1"\}/, /Nie dogadałem się teraz z modelem/]);
+await step("za długa głosówka: bez pobrania i bez zużycia", message(undefined, { voice: { file_id: "voice-2", duration: 400 } }), [/słucham najwyżej 3 minuty/, /^(?![\s\S]*getFile)/]);
+await step("zdjęcie z podpisem: największe do 1600 px", message(undefined, { caption: "przypomnij dzień przed terminem", photo: [{ file_id: "p-small", width: 90, height: 60 }, { file_id: "p-big", width: 1280, height: 853, file_size: 90000 }, { file_id: "p-xl", width: 2560, height: 1706 }] }), [/getFile \{"file_id":"p-big"\}/, /Nie dogadałem się/]);
 
 let out = await step("/dodaj zakłada listę i ją przypina", message("/dodaj kupić mleko"), [/sendMessage.*Twoja lista.*1\. kupić mleko/, /pinChatMessage/]);
 const listId = Number([...out.matchAll(new RegExp(`pinChatMessage \\{"chat_id":${CHAT},"message_id":(\\d+)`, "g"))].at(-1)?.[1]);
@@ -109,7 +113,8 @@ await step("/przypomnienia", message("/przypomnienia"), [/Zaplanowane przypomnie
 await step("licznik wrócił po nieudanych próbach AI", message("/pomoc"), [/Darmowe wiadomości AI: 10/]);
 
 // --- klucz, strefa, dane ---
-await step("klucz wklejony bez komendy", message(`sk-proj-${"x1".repeat(20)}`), [/deleteMessage/, /(odrzucił ten klucz|Nie mogę teraz sprawdzić)/]);
+// Sprawdzenie klucza idzie do prawdziwego OpenAI: przy zimnym połączeniu trwa ponad 2 s.
+await step("klucz wklejony bez komendy", message(`sk-proj-${"x1".repeat(20)}`), [/deleteMessage/, /(odrzucił ten klucz|Nie mogę teraz sprawdzić)/], 4000);
 await step("/strefa", message("/strefa Europe/London"), [/Strefa ustawiona: Europe\/London/]);
 await step("powtórzona aktualizacja jest ignorowana", { ...message("/pomoc"), update_id: updateId - 1 }, [/^(?![\s\S]*sendMessage)/]);
 
@@ -135,7 +140,8 @@ await step("potwierdzenie", callback("wipe", { message_id: 4 }), [/nic już o To
 await step("po /zapomnij darmowe wiadomości się nie odnawiają", message("/pomoc"), [/Darmowe wiadomości AI wykorzystane/]);
 await step("tryb komend: termin → gotowa komenda do skopiowania", message("jutro o 9 faktura"), [/Wygląda na przypomnienie jutro o 9:00/, /copy_text":\{"text":"\/przypomnij jutro o 9 faktura"/]);
 await step("tryb komend: zwykły tekst → podpowiedź i trzy drogi", message("cześć Otto"), [/Teraz działam na komendach/, /Abonament: napisz do nas/, /designhouse\.me\/kontakt/]);
-await step("tryb komend: zdjęcie → jak przypomnieć", message(undefined), [/odpowiedz na nią komendą/]);
+await step("tryb komend: wiadomość bez tekstu → jak przypomnieć", message(undefined), [/odpowiedz na nią komendą/]);
+await step("tryb komend: głosówka → potrzebne AI, droga dalej", message(undefined, { voice: { file_id: "voice-3", duration: 5 } }), [/Zdjęcia i głosówki rozumiem, gdy działa AI/, /callback_data":"key"/, /^(?![\s\S]*getFile)/]);
 await step("admin: cofnięcie VIP-a samemu sobie", message(`/unvip ${ADMIN_CHAT}`, {}, ADMIN_CHAT), [/VIP cofnięty/]);
 
 // Po /zapomnij obiekt żyje dalej: przypomnienie musi się dać ustawić od razu.

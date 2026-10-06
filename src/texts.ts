@@ -4,8 +4,17 @@
  */
 
 import { PROVIDER_NAMES, type Provider } from "./ai";
+import { MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES } from "./media";
+import type { Tone } from "./prompts";
 
 export const USES: Record<string, string> = { praca: "Praca", dom: "Dom", nauka: "Nauka", wszystko: "Wszystko po trochu" };
+/** Charakter Otta: przyciski w personalizacji (dwa rzędy po dwa). */
+export const TONES: [Tone, string][] = [
+  ["warm", "Serdecznie i ciepło"],
+  ["technical", "Rzeczowo, konkretnie"],
+  ["neutral", "Neutralnie"],
+  ["casual", "Na luzie, z humorem"],
+];
 export const ZONES: [string, string][] = [
   ["Polska", "Europe/Warsaw"],
   ["Wielka Brytania", "Europe/London"],
@@ -13,24 +22,27 @@ export const ZONES: [string, string][] = [
   ["Irlandia", "Europe/Dublin"],
 ];
 
+/** Strefa po ludzku: „Polska (Europe/Warsaw)” dla znanych, sama nazwa IANA dla pozostałych. */
+export const zoneName = (tz: string) => {
+  const label = ZONES.find(([, z]) => z === tz)?.[0];
+  return label ? `${label} (${tz})` : tz;
+};
+
 export const T = {
   // Powitanie i personalizacja
   hello: "Cześć, jestem Otto. Pamiętam za Ciebie: przypominam o czasie i prowadzę Twoją listę zadań. Treść zostaje tutaj, w Telegramie.",
-  onboardAsk: "Zanim zaczniemy: cztery krótkie pytania, żebym pisał po Twojemu. Zajmie to pół minuty.",
+  onboardAsk: "Zanim zaczniemy: trzy krótkie pytania, żebym pisał po Twojemu. Zajmie to pół minuty.",
   btnOnboardGo: "Dobra, pytaj",
   btnSkip: "Pomiń",
   askName: "Jak mam się do Ciebie zwracać? Napisz imię albo ksywkę.",
   badName: "Napisz samo imię albo ksywkę (do 30 znaków) albo kliknij „Pomiń”.",
-  askTone: "Jak mam pisać?",
-  toneShort: "Krótko i konkretnie",
-  toneCasual: "Luźno, z emoji",
+  askTone: "W jakim stylu mam z Tobą rozmawiać?",
   askUse: "Do czego głównie mnie użyjesz?",
-  askTz: "Gdzie jesteś? Od tego zależą godziny przypomnień.",
   tzOther: "Inna strefa",
   tzOtherHint: "Wpisz swoją strefę, np. /strefa America/New_York",
   answered: (question: string, answer: string) => `${question} ${answer}`,
-  onboardDone: (name: string | undefined, line: string) =>
-    `Gotowe${name ? `, ${name}` : ""}! ${line}\n\nZmienisz to w każdej chwili przez /ustawienia.`,
+  onboardDone: (name: string | undefined, line: string, zone: string) =>
+    `Gotowe${name ? `, ${name}` : ""}! ${line}\n\nGodziny liczę w strefie: ${zone}. Za granicą zmienisz ją przez /strefa. Odpowiedzi zmienisz przez /ustawienia.`,
   welcomeBack: (name: string | undefined, line: string) => `Cześć${name ? `, ${name}` : ""}! ${line}`,
   lineFree: (left: number) => `Masz ${messages(left)} AI: pisz do mnie zwykłymi zdaniami, np. „jutro o 9 przypomnij mi o fakturze”.`,
   lineKey: "Masz podpięty własny klucz AI, więc piszesz do mnie zwykłymi zdaniami bez limitu.",
@@ -41,6 +53,7 @@ export const T = {
     [
       "Co umiem:",
       "• pisz do mnie zwykłymi zdaniami (AI), np. „w piątek po pracy przypomnij mi o oponach”",
+      "• wyślij głosówkę albo zdjęcie (AI), np. zdjęcie faktury z podpisem „przypomnij dzień przed terminem”",
       "• /przypomnij jutro o 9 faktura (albo odpowiedz tak na dowolną wiadomość, także zdjęcie)",
       "• /dodaj mleko, chleb: dopisuje do listy",
       "• /lista: Twoja lista, przypięta u góry czatu",
@@ -62,6 +75,16 @@ export const T = {
   commandMode: "Teraz działam na komendach, zwykłych zdań bez AI nie rozumiem. Na przykład:\n/przypomnij jutro o 9 faktura\n/dodaj mleko, chleb\n/lista",
   commandModeTime: (when: string) => `Wygląda na przypomnienie ${when}. Ustawisz je komendą /przypomnij, gotową masz pod przyciskiem.`,
   commandMedia: "Żeby przypomnieć o tej wiadomości, odpowiedz na nią komendą, np. /przypomnij jutro o 9",
+  commandMediaAi:
+    "Zdjęcia i głosówki rozumiem, gdy działa AI, a teraz działam na komendach. Żeby przypomnieć o tej wiadomości, odpowiedz na nią komendą, np. /przypomnij jutro o 9.",
+
+  // Głosówki i zdjęcia
+  voiceTooLong: `Ta głosówka jest dla mnie za długa: słucham najwyżej ${MAX_AUDIO_SECONDS / 60} ${plural(MAX_AUDIO_SECONDS / 60, "minutę", "minuty", "minut")}. Nagraj krótszą albo napisz tekstem.`,
+  voiceAnthropic: "Z kluczem Anthropic nie zrozumiem głosówki, bo Claude nie przyjmuje dźwięku. Napisz to tekstem albo podepnij klucz Gemini lub OpenAI: /klucz",
+  voiceEmpty: "Nic nie usłyszałem w tej głosówce. Nagraj ją jeszcze raz albo napisz tekstem.",
+  fileTooBig: `Ten plik jest dla mnie za duży (do ${MAX_MEDIA_BYTES / 1024 / 1024} MB). Wyślij mniejszy albo napisz tekstem.`,
+  mediaFailed: "Nie udało mi się pobrać tego pliku z Telegrama, ta wiadomość się nie liczy. Spróbuj jeszcze raz.",
+  mediaModel: "Ten model nie przyjmuje zdjęć albo głosówek. Wybierz przez /model taki, który je rozumie, albo napisz tekstem.",
   btnCopyCommand: "📋 Skopiuj komendę",
   lastFree: [
     "To była ostatnia z Twoich 10 darmowych wiadomości AI. Co dalej? Masz trzy drogi:",

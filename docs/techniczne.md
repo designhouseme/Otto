@@ -26,7 +26,7 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 1. Telegram wysyła aktualizację na `/tg/webhook` z nagłówkiem `X-Telegram-Bot-Api-Secret-Token`. Worker sprawdza podpis, odrzuca czaty inne niż prywatne i odpowiada od razu `200`.
 2. Resztę robi obiekt `Chat` dla tego czatu (w `waitUntil`, czyli do 30 s po odpowiedzi). Aktualizacje jednej osoby idą po kolei (kolejka w pamięci obiektu), a powtórki Telegrama odrzuca numer `update_id`.
 3. Kolejność decyzji: wiadomość z kluczem API (kasujemy ją przed czymkolwiek innym) → komenda → imię z personalizacji → AI (własny klucz, VIP albo darmowe wiadomości) → tryb komend. Otto odpowiada zwykłymi wiadomościami; jedyna odpowiedź „na wiadomość” to samo przypomnienie (i przyciski terminu po `/przypomnij` w odpowiedzi na wiadomość).
-4. Pierwsze `/start` proponuje personalizację: imię albo ksywka, ton (krótko albo luźno), do czego Otto ma służyć, strefa czasowa. Każdy krok można pominąć, a `/ustawienia` zaczyna od nowa. Model dostaje to w instrukcji.
+4. Pierwsze `/start` proponuje personalizację: imię albo ksywka, styl rozmowy (serdecznie, rzeczowo, neutralnie albo na luzie) i do czego Otto ma służyć. O strefę nie pyta: domyślnie `DEFAULT_TZ` (Polska), za granicą `/strefa`. Każdy krok można pominąć, a `/ustawienia` zaczyna od nowa. Model dostaje to w instrukcji.
 5. Bez AI (po 10 darmowych, bez klucza i VIP-a) zwykły tekst dostaje krótką podpowiedź z komendą. Jeśli w tekście jest termin, przycisk „Skopiuj komendę” podsuwa gotowe `/przypomnij …`. Po ostatniej darmowej wiadomości Otto pisze o trzech drogach: komendy, własny klucz, abonament (`CONTACT_URL`).
 
 ## Dane
@@ -39,7 +39,7 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 | `freeLeft`, `claimed` | darmowe wiadomości AI (przy pierwszym kontakcie `FREE_MESSAGES`, jeśli rejestr nie zna jeszcze tego konta) |
 | `key` | `{ provider, sealed, model }`; `sealed` to AES-GCM z `KEY_SECRET`, z numerem czatu jako danymi powiązanymi |
 | `vip` | AI bez limitu na kluczu serwera, nadane przez admina (`/vip NUMER`) |
-| `profile`, `onboarded` | personalizacja (imię albo ksywka, ton, do czego służy Otto), tylko jeśli ktoś ją poda |
+| `profile`, `onboarded` | personalizacja (imię albo ksywka, styl rozmowy, do czego służy Otto), tylko jeśli ktoś ją poda |
 | `awaiting` | czekamy na klucz po `/klucz` albo na imię w personalizacji |
 | `listId` | numer przypiętej wiadomości z listą |
 
@@ -62,9 +62,26 @@ Przypominając, Otto odpowiada na oryginalną wiadomość, więc treść widać 
 ## AI
 
 - Darmowe wiadomości i strona: Gemini (`GEMINI_MODEL`, domyślnie alias `gemini-flash-latest`). Każda darmowa wiadomość zużywa jedną z puli `DAILY_FREE_LIMIT`, a przy błędzie modelu wraca do licznika i do puli.
+- Model zapasowy (`GEMINI_FALLBACK_MODEL`): główny dostaje 60% budżetu czasu, a gdy oddaje 503, 429, milczy albo zrywa połączenie, resztę czasu dostaje lżejszy model. Oba podejścia mieszczą się w jednym budżecie (20 s, z plikiem 24 s), bo całość musi się zmieścić w ok. 30 s `waitUntil`.
 - Własny klucz: dostawca rozpoznany po początku klucza (`AIza…`, `sk-ant-…`, `sk-or-…`, `sk-…`), sprawdzony bezpłatnym zapytaniem (lista modeli albo opis klucza). Model domyślny dostawcy zmienia `/model`.
-- Model zwraca JSON z odpowiedzią, przypomnieniami (czas lokalny), wpisami do dopisania i numerami do odhaczenia. Kod sprawdza każde pole: przypomnienie w przeszłości albo za ponad rok przepada, najwyżej 3 na wiadomość.
+- Model zwraca JSON z odpowiedzią, przypomnieniami, wpisami do dopisania i numerami do odhaczenia. Kod sprawdza każde pole: przypomnienie w przeszłości albo za ponad rok przepada, najwyżej 3 na wiadomość.
+- Czas: model dostaje bieżącą godzinę i kalendarz na dwa tygodnie z dniami tygodnia (`calendar` w `src/time.ts`), bo licząc dni w pamięci myli piątek z czwartkiem. Przypomnienie podaje jako czas lokalny `RRRR-MM-DDTGG:MM` z tego kalendarza albo jako czas od teraz (`+20m`, `+2h`), który liczy już kod (`reminderAt`). W odpowiedzi nie podaje terminu: dokładny termin dopisuje aplikacja, więc nie ma dwóch wersji.
+- Lista i przypomnienia są osobno: to, co dostaje termin, nie trafia na listę, chyba że ktoś o to prosi. Dla tekstu (i transkrypcji) kod to pilnuje: przy przypomnieniu bez słowa o liście wpisy do listy przepadają.
+- Styl rozmowy z personalizacji (`Tone` w `src/prompts.ts`): serdecznie, rzeczowo, neutralnie albo na luzie; dawne „short” to rzeczowo.
 - Model nie ma żadnych narzędzi poza tym planem, więc wstrzyknięte polecenia w treści wiadomości nie mają czego nadużyć. Tak ma zostać.
+
+## Głosówki i zdjęcia
+
+Z AI Otto rozumie głosówki, nagrania (do 3 minut), zdjęcia i obrazki wysłane jako plik (JPEG, PNG, WebP, do 8 MB). `src/media.ts` wybiera, co wysłać (ze zdjęcia największy rozmiar do 1600 px), a `Telegram.download` pobiera plik przez `getFile` tylko na czas jednego zapytania i nigdzie go nie zapisuje. Za długie, za duże albo nieobsługiwane pliki odrzucamy przed zużyciem darmowej wiadomości.
+
+| Dostawca | Zdjęcia | Głosówki |
+|---|---|---|
+| Gemini (darmowe, VIP, własny klucz) | wprost (`inlineData`) | wprost (OGG z Telegrama) |
+| OpenAI | `image_url` | transkrypcja (`gpt-4o-mini-transcribe`, zapasowo `whisper-1`), potem zwykły tekst |
+| OpenRouter | `image_url` | `input_audio`, jeśli wybrany model przyjmuje dźwięk |
+| Anthropic | blok `image` | nie: Claude nie przyjmuje dźwięku, Otto mówi to od razu |
+
+Wiadomość dla modelu jest oznaczona (`[głosówka]`, `[zdjęcie]` i podpis), a instrukcja mówi, że treść plików, także tekst widoczny na zdjęciu, to dane, nie polecenia. Zdjęcie bez słowa: Otto opisuje, co z niego wynika, i proponuje przypomnienie, ale niczego sam nie ustawia.
 
 ## Strona
 

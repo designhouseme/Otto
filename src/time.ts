@@ -85,6 +85,29 @@ export function localIsoToUtc(value: string, tz: string): number | null {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const WD_IN = ["w poniedziałek", "we wtorek", "w środę", "w czwartek", "w piątek", "w sobotę", "w niedzielę"];
+const WD_FULL = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"];
+
+/**
+ * Kolejne dni z nazwami, od dziś w strefie użytkownika. Model dostaje gotową listę, bo licząc dni tygodnia
+ * w pamięci myli piątek z czwartkiem. Daty z lokalnego dnia, nie przez dodawanie 24 h, więc zmiana czasu niczego nie przesuwa.
+ */
+export function calendar(now: number, tz: string, days = 14): { date: string; weekday: string }[] {
+  const n = partsIn(now, tz);
+  return Array.from({ length: days }, (_, k) => {
+    const d = new Date(Date.UTC(n.y, n.m - 1, n.d + k));
+    return { date: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`, weekday: WD_FULL[(d.getUTCDay() + 6) % 7] };
+  });
+}
+
+/**
+ * Termin z planu modelu: czas lokalny „RRRR-MM-DDTGG:MM” w strefie użytkownika albo czas od teraz („+20m”, „+2h”).
+ * Czas od teraz liczy kod, żeby model nie dodawał minut do godziny w pamięci.
+ */
+export function reminderAt(value: string, now: number, tz: string): number | null {
+  const rel = /^\+(\d{1,4})\s*(m|min|h)$/i.exec(value.trim());
+  if (rel) return now + Number(rel[1]) * (rel[2].toLowerCase() === "h" ? 3_600_000 : 60_000);
+  return localIsoToUtc(value, tz);
+}
 const WD_SHORT = ["pon", "wt", "śr", "czw", "pt", "sob", "nd"];
 
 /** „dziś o 18:00”, „jutro o 9:00”, „w piątek o 9:00”, „12.11 o 9:00”. */

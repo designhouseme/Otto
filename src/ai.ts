@@ -44,23 +44,31 @@ export function defaultModel(provider: Provider, env: Env) {
 
 export class AiError extends Error {
   constructor(
-    readonly kind: "auth" | "quota" | "busy" | "timeout" | "bad" | "other",
+    readonly kind: "auth" | "quota" | "busy" | "timeout" | "bad" | "unsupported" | "other",
     message: string,
   ) {
     super(message);
   }
 }
 
+/** Zdjęcie albo nagranie dołączone do wiadomości, w base64. */
+export interface Media {
+  kind: "image" | "audio";
+  mime: string;
+  data: string;
+}
+
 export interface Turn {
   role: "user" | "assistant";
   text: string;
+  media?: Media[];
 }
 
 export interface JsonCall {
   provider: Provider;
   key: string;
   model: string;
-  /** Lżejszy model na wypadek przeciążenia (503). Ponawiamy raz, tylko przy szybkiej odmowie, nie po przekroczeniu czasu. */
+  /** Lżejszy model na wypadek przeciążenia, limitu, braku odpowiedzi na czas albo zerwanego połączenia. Ponawiamy raz, w tym samym budżecie czasu. */
   fallbackModel?: string;
   system: string;
   turns: Turn[];
@@ -68,79 +76,160 @@ export interface JsonCall {
 }
 
 export async function completeJson(call: JsonCall): Promise<unknown> {
+  const deadline = Date.now() + call.timeoutMs;
+  const fallback = call.fallbackModel && call.fallbackModel !== call.model ? call.fallbackModel : undefined;
+  // Przeciążony Gemini potrafi milczeć do końca budżetu albo oddać 503 po kilkunastu sekundach. Gdy jest model zapasowy,
+  // główny dostaje 60% czasu, a zapasowy (zwykle odpowiada w 1-2 s) resztę: razem zawsze mieszczą się w timeoutMs.
+  const first = fallback ? Math.round(call.timeoutMs * 0.6) : call.timeoutMs;
   try {
-    return parseJson(await complete(call));
+    return parseJson(await complete({ ...call, timeoutMs: first }));
   } catch (error) {
-    if (!(error instanceof AiError && error.kind === "busy" && call.fallbackModel && call.fallbackModel !== call.model)) throw error;
-    return parseJson(await complete({ ...call, model: call.fallbackModel }));
+    // Limity Gemini są osobne dla każdego modelu, więc po 429 lżejszy model zwykle jeszcze odpowie.
+    if (!(fallback && error instanceof AiError && ["busy", "timeout", "quota", "other"].includes(error.kind))) throw error;
+    const left = deadline - Date.now();
+    if (left < 2000) throw error;
+    return parseJson(await complete({ ...call, model: fallback, timeoutMs: left }));
   }
 }
 
-async function complete({ provider, key, model, system, turns, timeoutMs }: JsonCall): Promise<string> {
-  const signal = AbortSignal.timeout(timeoutMs);
+async function complete(call: JsonCall): Promise<string> {
   try {
-    if (provider === "gemini") {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-goog-api-key": key },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
-            contents: turns.map((t) => ({ role: t.role === "assistant" ? "model" : "user", parts: [{ text: t.text }] })),
-            generationConfig: { responseMimeType: "application/json" },
-          }),
-          signal,
-        },
-      );
-      await assertOk(response);
-      const data = await response.json<{
-        candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
-      }>();
-      return (data.candidates?.[0]?.content?.parts ?? [])
-        .filter((p) => !p.thought)
-        .map((p) => p.text ?? "")
-        .join("");
-    }
-
-    if (provider === "anthropic") {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({
-          model,
-          max_tokens: 1024,
-          system,
-          messages: turns.map((t) => ({ role: t.role, content: t.text })),
-        }),
-        signal,
-      });
-      await assertOk(response);
-      const data = await response.json<{ content?: { type: string; text?: string }[] }>();
-      return (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("");
-    }
-
-    const base = provider === "openai" ? "https://api.openai.com/v1" : "https://openrouter.ai/api/v1";
-    const response = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: "system", content: system }, ...turns.map((t) => ({ role: t.role, content: t.text }))],
-        response_format: { type: "json_object" },
-      }),
-      signal,
-    });
+    const { url, headers, body } = buildRequest(call);
+    const response = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(call.timeoutMs) });
     await assertOk(response);
-    const data = await response.json<{ choices?: { message?: { content?: string } }[] }>();
-    return data.choices?.[0]?.message?.content ?? "";
+    return await readReply(call.provider, response);
   } catch (error) {
-    if (error instanceof AiError) throw error;
-    if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      throw new AiError("timeout", "Model nie odpowiedział na czas.");
-    }
-    throw new AiError("other", error instanceof Error ? error.message : String(error));
+    throw asAiError(error);
   }
+}
+
+/**
+ * Zapytanie do dostawcy, bez wysyłania: osobno, żeby kształt dla każdego dostawcy dało się sprawdzić w testach bez kluczy.
+ * Zdjęcia przyjmują wszyscy. Dźwięk: Gemini wprost, OpenRouter jako input_audio (zależnie od modelu),
+ * OpenAI przez transkrypcję (transcribe), a Claude wcale.
+ */
+export function buildRequest({ provider, key, model, system, turns }: JsonCall): { url: string; headers: Record<string, string>; body: unknown } {
+  const audio = turns.some((t) => t.media?.some((m) => m.kind === "audio"));
+
+  if (provider === "gemini") {
+    return {
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      headers: { "content-type": "application/json", "x-goog-api-key": key },
+      body: {
+        systemInstruction: { parts: [{ text: system }] },
+        contents: turns.map((t) => ({
+          role: t.role === "assistant" ? "model" : "user",
+          parts: [...(t.media ?? []).map((m) => ({ inlineData: { mimeType: m.mime, data: m.data } })), { text: t.text }],
+        })),
+        generationConfig: { responseMimeType: "application/json" },
+      },
+    };
+  }
+
+  if (provider === "anthropic") {
+    if (audio) throw new AiError("unsupported", "Claude nie przyjmuje dźwięku.");
+    return {
+      url: "https://api.anthropic.com/v1/messages",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      body: {
+        model,
+        max_tokens: 1024,
+        system,
+        messages: turns.map((t) => ({
+          role: t.role,
+          content: t.media?.length
+            ? [...t.media.map((m) => ({ type: "image", source: { type: "base64", media_type: m.mime, data: m.data } })), { type: "text", text: t.text }]
+            : t.text,
+        })),
+      },
+    };
+  }
+
+  // chat/completions OpenAI nie przyjmuje OGG z Telegrama: głosówka idzie tam jako tekst z transcribe().
+  if (provider === "openai" && audio) throw new AiError("unsupported", "OpenAI: głosówka tylko przez transkrypcję.");
+  return {
+    url: `${provider === "openai" ? "https://api.openai.com/v1" : "https://openrouter.ai/api/v1"}/chat/completions`,
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: {
+      model,
+      messages: [
+        { role: "system", content: system },
+        ...turns.map((t) => ({
+          role: t.role,
+          content: t.media?.length
+            ? [
+                { type: "text", text: t.text },
+                ...t.media.map((m) =>
+                  m.kind === "image"
+                    ? { type: "image_url", image_url: { url: `data:${m.mime};base64,${m.data}` } }
+                    : { type: "input_audio", input_audio: { data: m.data, format: audioFormat(m.mime) } },
+                ),
+              ]
+            : t.text,
+        })),
+      ],
+      response_format: { type: "json_object" },
+    },
+  };
+}
+
+async function readReply(provider: Provider, response: Response): Promise<string> {
+  if (provider === "gemini") {
+    const data = await response.json<{ candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] }>();
+    return (data.candidates?.[0]?.content?.parts ?? [])
+      .filter((p) => !p.thought)
+      .map((p) => p.text ?? "")
+      .join("");
+  }
+  if (provider === "anthropic") {
+    const data = await response.json<{ content?: { type: string; text?: string }[] }>();
+    return (data.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("");
+  }
+  const data = await response.json<{ choices?: { message?: { content?: string } }[] }>();
+  return data.choices?.[0]?.message?.content ?? "";
+}
+
+/** Format nagrania dla OpenAI i OpenRouter (i rozszerzenie pliku) z typu MIME. */
+export function audioFormat(mime: string) {
+  if (/mpeg|mp3/.test(mime)) return "mp3";
+  if (/mp4|m4a/.test(mime)) return "m4a";
+  if (/wav/.test(mime)) return "wav";
+  if (/aac/.test(mime)) return "aac";
+  if (/flac/.test(mime)) return "flac";
+  return "ogg";
+}
+
+/**
+ * Głosówka na tekst przez OpenAI, dla klucza OpenAI. Najpierw nowszy model transkrypcji,
+ * a gdy konto go nie ma (400 albo 404), whisper-1. Oba podejścia mieszczą się w timeoutMs.
+ */
+export async function transcribe(key: string, audio: Uint8Array, mime: string, timeoutMs: number): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  for (const model of ["gpt-4o-mini-transcribe", "whisper-1"]) {
+    try {
+      const form = new FormData();
+      form.append("model", model);
+      form.append("file", new Blob([audio], { type: mime }), `voice.${audioFormat(mime)}`);
+      const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { authorization: `Bearer ${key}` },
+        body: form,
+        signal: AbortSignal.timeout(Math.max(1000, deadline - Date.now())),
+      });
+      if ((response.status === 400 || response.status === 404) && model !== "whisper-1") continue;
+      await assertOk(response);
+      return ((await response.json<{ text?: string }>()).text ?? "").trim();
+    } catch (error) {
+      throw asAiError(error);
+    }
+  }
+  throw new AiError("other", "Transkrypcja się nie udała.");
+}
+
+function asAiError(error: unknown): AiError {
+  if (error instanceof AiError) return error;
+  if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) return new AiError("timeout", "Model nie odpowiedział na czas.");
+  return new AiError("other", error instanceof Error ? error.message : String(error));
 }
 
 async function assertOk(response: Response) {

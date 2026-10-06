@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { KEY_PATTERN, completeJson, detectProvider, parseJson } from "../src/ai";
+import { KEY_PATTERN, audioFormat, buildRequest, completeJson, detectProvider, parseJson, transcribe } from "../src/ai";
 import { seal, unseal } from "../src/crypto";
-import { toBotPlan, toSiteReply } from "../src/prompts";
+import { botSystem, toBotPlan, toSiteReply } from "../src/prompts";
 
 describe("klucze", () => {
   it("rozpoznaje dostawcę", () => {
@@ -61,7 +61,7 @@ describe("odpowiedzi modelu", () => {
 
 describe("przeciążony model", () => {
   afterEach(() => vi.unstubAllGlobals());
-  const call = { provider: "gemini" as const, key: "k", model: "glowny", fallbackModel: "lzejszy", system: "s", turns: [{ role: "user" as const, text: "hej" }], timeoutMs: 1000 };
+  const call = { provider: "gemini" as const, key: "k", model: "glowny", fallbackModel: "lzejszy", system: "s", turns: [{ role: "user" as const, text: "hej" }], timeoutMs: 10_000 };
   const ok = (text: string) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
 
   it("przy 503 ponawia raz na lżejszym modelu", async () => {
@@ -80,5 +80,110 @@ describe("przeciążony model", () => {
     vi.stubGlobal("fetch", async () => (calls++, new Response("API key not valid", { status: 400 })));
     await expect(completeJson(call)).rejects.toMatchObject({ kind: "auth" });
     expect(calls).toBe(1);
+  });
+
+  it("limit na głównym modelu (429): odpowiada zapasowy, który ma własny limit", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => (++calls === 1 ? new Response("{}", { status: 429 }) : ok('{"reply":"z zapasowego"}')));
+    expect(await completeJson(call)).toEqual({ reply: "z zapasowego" });
+    expect(calls).toBe(2);
+  });
+
+  it("główny model milczy: po swojej części czasu odpowiada zapasowy", async () => {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      urls.push(url);
+      if (urls.length === 1) throw Object.assign(new Error("czas minął"), { name: "TimeoutError" });
+      return ok('{"reply":"z zapasowego"}');
+    });
+    expect(await completeJson(call)).toEqual({ reply: "z zapasowego" });
+    expect(urls.map((u) => u.includes("/lzejszy:"))).toEqual([false, true]);
+  });
+
+  it("zapasowy model dostaje tylko to, co zostało z czasu", async () => {
+    // 503 przyszło dopiero tuż przed końcem budżetu: drugiej próby już nie ma
+    let calls = 0;
+    const start = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => (calls === 0 ? start : start + 9_500));
+    vi.stubGlobal("fetch", async () => (calls++, new Response("{}", { status: 503 })));
+    await expect(completeJson(call)).rejects.toMatchObject({ kind: "busy" });
+    expect(calls).toBe(1);
+    vi.restoreAllMocks();
+  });
+});
+
+describe("zdjęcia i głosówki w zapytaniu", () => {
+  const image = { kind: "image" as const, mime: "image/jpeg", data: "QUJD" };
+  const voice = { kind: "audio" as const, mime: "audio/ogg", data: "T2dn" };
+  const req = (provider: "gemini" | "openai" | "anthropic" | "openrouter", media: (typeof image | typeof voice)[]) =>
+    buildRequest({ provider, key: "k", model: "m", system: "s", turns: [{ role: "user", text: "[zdjęcie]", media }], timeoutMs: 1000 }) as {
+      url: string;
+      body: Record<string, any>;
+    };
+
+  it("Gemini: obraz i dźwięk jako inlineData przed tekstem", () => {
+    const parts = req("gemini", [voice]).body.contents[0].parts;
+    expect(parts).toEqual([{ inlineData: { mimeType: "audio/ogg", data: "T2dn" } }, { text: "[zdjęcie]" }]);
+    expect(req("gemini", []).body.contents[0].parts).toEqual([{ text: "[zdjęcie]" }]);
+  });
+
+  it("Anthropic: zdjęcie tak, dźwięk nie", () => {
+    expect(req("anthropic", [image]).body.messages[0].content).toEqual([
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "QUJD" } },
+      { type: "text", text: "[zdjęcie]" },
+    ]);
+    expect(() => req("anthropic", [voice])).toThrow(expect.objectContaining({ kind: "unsupported" }));
+  });
+
+  it("OpenAI: zdjęcie jako data URL, głosówka tylko przez transkrypcję", () => {
+    expect(req("openai", [image]).body.messages[1].content[1]).toEqual({ type: "image_url", image_url: { url: "data:image/jpeg;base64,QUJD" } });
+    expect(() => req("openai", [voice])).toThrow(expect.objectContaining({ kind: "unsupported" }));
+  });
+
+  it("OpenRouter: głosówka jako input_audio w formacie ogg", () => {
+    const r = req("openrouter", [voice]);
+    expect(r.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(r.body.messages[1].content[1]).toEqual({ type: "input_audio", input_audio: { data: "T2dn", format: "ogg" } });
+    expect(audioFormat("audio/mpeg")).toBe("mp3");
+    expect(audioFormat("audio/x-m4a")).toBe("m4a");
+  });
+});
+
+describe("transkrypcja OpenAI", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("bez nowszego modelu przechodzi na whisper-1", async () => {
+    const models: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      models.push(String((init.body as FormData).get("model")));
+      return models.length === 1 ? new Response("{}", { status: 404 }) : Response.json({ text: " jutro o 9 przypomnij mi o fakturze " });
+    });
+    expect(await transcribe("k", new Uint8Array([1, 2, 3]), "audio/ogg", 10_000)).toBe("jutro o 9 przypomnij mi o fakturze");
+    expect(models).toEqual(["gpt-4o-mini-transcribe", "whisper-1"]);
+  });
+
+  it("zły klucz to błąd klucza, bez drugiej próby", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => (calls++, new Response("{}", { status: 401 })));
+    await expect(transcribe("k", new Uint8Array([1]), "audio/ogg", 10_000)).rejects.toMatchObject({ kind: "auth" });
+    expect(calls).toBe(1);
+  });
+});
+
+describe("instrukcja dla modelu", () => {
+  const NOW = Date.UTC(2026, 9, 6, 7, 0); // wtorek 6.10, 9:00 w Warszawie
+  it("ma kalendarz z dniami tygodnia", () => {
+    const text = botSystem(NOW, "Europe/Warsaw", []);
+    expect(text).toContain("wtorek 2026-10-06  (dziś)");
+    expect(text).toContain("środa 2026-10-07  (jutro)");
+    expect(text).toContain("piątek 2026-10-09");
+    expect(text).toContain("godzina 09:00");
+  });
+
+  it("styl rozmowy; dawne „short” to rzeczowo", () => {
+    expect(botSystem(NOW, "Europe/Warsaw", [], undefined, { tone: "technical" })).toContain("rzeczowo i precyzyjnie");
+    expect(botSystem(NOW, "Europe/Warsaw", [], undefined, { tone: "short" })).toContain("rzeczowo i precyzyjnie");
+    expect(botSystem(NOW, "Europe/Warsaw", [], undefined, { tone: "warm" })).toContain("serdecznie i ciepło");
+    expect(botSystem(NOW, "Europe/Warsaw", [])).toContain("ciepło i życzliwie");
   });
 });
