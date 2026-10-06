@@ -45,11 +45,11 @@ Na powitanie wysyłam naklejkę. Cały [zestaw moich min](https://t.me/addsticke
 <table>
   <tr>
     <td width="96"><img src="public/img/stamp-budzik.webp" width="88" alt=""></td>
-    <td><b>Przypominam o każdej wiadomości.</b> Także o zdjęciu paragonu albo głosówce: odpowiedz na nią <code>/przypomnij jutro o 9</code>. Gdy przyjdzie pora, pod przypomnieniem są przyciski „+15 min”, „+1 h”, „Jutro 9:00” i „Zrobione”.</td>
+    <td><b>Przypominam o każdej wiadomości.</b> Także o zdjęciu paragonu albo głosówce: odpowiedz na nią <code>/przypomnij jutro o 9</code>. Gdy przyjdzie pora, pod przypomnieniem są przyciski „+15 min”, „+1 h”, „Jutro 9:00” i „Zrobione”. Pod każdym przypomnieniem są też przyciski „Dodaj do kalendarza”: Google, Apple albo Outlook.</td>
   </tr>
   <tr>
     <td><img src="public/img/stamp-kalendarz.webp" width="88" alt=""></td>
-    <td><b>Rozumiem terminy bez AI.</b> „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”, „jutro wieczorem”. Uwzględniam też zmianę czasu.</td>
+    <td><b>Rozumiem terminy bez AI.</b> „jutro o 9”, „w piątek 15:30”, „za 2 h”, „12.10 o 8”, „za tydzień”, „jutro wieczorem”. Uwzględniam też zmianę czasu. Napiszesz „jutro o 9 faktura”, a dostaniesz przycisk „Przypomnij” i kalendarz. Gdy termin znajdę sam, np. na zdjęciu faktury, też tylko proponuję.</td>
   </tr>
   <tr>
     <td><img src="public/img/stamp-lista.webp" width="88" alt=""></td>
@@ -103,7 +103,7 @@ Mniej, niż myślisz. Po lewej cała moja karta o Tobie, po prawej to, co zostaj
 | jak mam się do Ciebie zwracać i w jakim stylu, jeśli podasz | imienia z profilu Telegrama |
 | hash numeru czatu, żeby darmowe wiadomości były raz na konto | |
 
-Gdy używam AI, treść wiadomości (także zdjęć i głosówek) trafia do dostawcy modelu. Plików nie zapisuję: pobieram je z Telegrama tylko na czas jednej odpowiedzi. Telegram nie szyfruje rozmów z botami end-to-end. `/zapomnij` usuwa wszystko, co mam, poza hashem numeru czatu (bez niego darmowe wiadomości dałoby się odnawiać).
+Gdy używam AI, treść wiadomości (także zdjęć i głosówek) trafia do dostawcy modelu. Plików nie zapisuję: pobieram je z Telegrama tylko na czas jednej odpowiedzi. Przyciski kalendarza niosą tytuł i godzinę w samym linku: do Google jawnie, do mnie (plik .ics dla Apple i Outlooka) zaszyfrowane, więc i tego nigdzie nie zapisuję. Telegram nie szyfruje rozmów z botami end-to-end. `/zapomnij` usuwa wszystko, co mam, poza hashem numeru czatu (bez niego darmowe wiadomości dałoby się odnawiać).
 
 ## Komendy
 

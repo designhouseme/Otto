@@ -6,7 +6,8 @@ Cloudflare Workers + Durable Objects, bez frameworka. Telegram przez webhook, AI
 
 | Plik | Co robi |
 |---|---|
-| [`src/index.ts`](../src/index.ts) | router: `/tg/webhook`, `/api/ask`, `/admin/*`, `/telegram` (przekierowanie do bota), reszta to strona z `public/` |
+| [`src/index.ts`](../src/index.ts) | router: `/tg/webhook`, `/api/ask`, `/admin/*`, `/telegram` (przekierowanie do bota), `/kalendarz` (plik .ics), reszta to strona z `public/` |
+| [`src/calendar.ts`](../src/calendar.ts) | „Dodaj do kalendarza”: link do Google Kalendarza, plik .ics dla Apple i Outlooka z zaszyfrowanego linku, tytuł bez słów o czasie |
 | [`src/chat.ts`](../src/chat.ts) | `Chat`: jeden obiekt na jedną rozmowę prywatną. Wiadomości, przyciski, lista, przypomnienia (alarm), darmowe wiadomości na start, własny klucz |
 | [`src/registry.ts`](../src/registry.ts) | `Registry`: jeden wspólny obiekt. Konta, które odebrały darmowe wiadomości (hash numeru czatu), dzienne pule, limity zapytań ze strony |
 | [`src/telegram.ts`](../src/telegram.ts) | cienki klient Bot API i udawany Telegram dla `DEV_DRY_RUN` |
@@ -69,6 +70,12 @@ Przypominając, Otto odpowiada na oryginalną wiadomość, więc treść widać 
 - Lista i przypomnienia są osobno: to, co dostaje termin, nie trafia na listę, chyba że ktoś o to prosi. Dla tekstu (i transkrypcji) kod to pilnuje: przy przypomnieniu bez słowa o liście wpisy do listy przepadają.
 - Styl rozmowy z personalizacji (`Tone` w `src/prompts.ts`): serdecznie, rzeczowo, neutralnie albo na luzie; dawne „short” to rzeczowo. `/osobowosc` zmienia go jednym kliknięciem (przyciski `o:…`), a potwierdzenie jest już w nowym stylu.
 - Model nie ma żadnych narzędzi poza tym planem, więc wstrzyknięte polecenia w treści wiadomości nie mają czego nadużyć. Tak ma zostać.
+
+## Kalendarz
+
+Otto nie czyta niczyjego kalendarza, ale każdy termin można do niego dodać jednym kliknięciem. Pod potwierdzeniem przypomnienia (z AI i z `/przypomnij`) są dwa przyciski: „Google Kalendarz” to link prosto do Google z tytułem i godziną (`action=TEMPLATE`), a „Apple, Outlook” to link do `/kalendarz?e=…`, gdzie `e` to tytuł i godzina zaszyfrowane AES-GCM kluczem `KEY_SECRET` w osobnym kontekście („kalendarz”), więc ten szyfrogram nie odszyfruje się jako klucz API. Worker oddaje z niego plik .ics (RFC 5545: znaki specjalne, linie po 75 bajtów, wydarzenie na 30 minut z alarmem), niczego nie zapisując; w logach widać tylko szyfrogram. Ścieżka jest w `run_worker_first`, bo inaczej odpowiedziałaby strona 404.
+
+Tytuł daje model (`title`), a w komendach `cleanTitle` wycina z tekstu słowa o czasie („jutro o 9 faktura” → „Faktura”). Gdy model znajdzie termin, o który nikt nie prosił (np. na zdjęciu faktury), zwraca go w `suggest`: Otto pokazuje przycisk „⏰ Przypomnij …” (`s:wiadomość:czas`) i kalendarz. To samo w trybie komend, gdy parser znajdzie termin w zwykłej wiadomości. Po kliknięciu termin sprawdzamy jeszcze raz (przycisk mógł czekać godzinami), do wiadomości dochodzi potwierdzenie, a przyciski kalendarza zostają.
 
 ## Głosówki i zdjęcia
 
