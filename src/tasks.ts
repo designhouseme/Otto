@@ -23,7 +23,7 @@ export function renderList(tasks: string[]): { text: string; reply_markup: Keybo
   const text = tasks.length
     ? `${TITLE}\n\n${tasks.map((task, i) => `${i + 1}. ${task}`).join("\n")}\n\nZrobione? Kliknij numer.`
     : `${TITLE}\n\nNa razie pusto. Dopisz coś: /dodaj kupić mleko`;
-  const buttons = tasks.map((task, i) => ({ text: `✓ ${i + 1}`, callback_data: `d:${i}:${shortHash(task)}` }));
+  const buttons = tasks.map((task, i) => ({ text: `✓ ${i + 1}`, style: "success" as const, callback_data: `d:${i}:${shortHash(task)}` }));
   const rows = [];
   for (let i = 0; i < buttons.length; i += 5) rows.push(buttons.slice(i, i + 5));
   return { text, reply_markup: { inline_keyboard: rows } };

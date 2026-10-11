@@ -192,7 +192,7 @@ export class Chat extends DurableObject<Env> {
         return this.say(s, T.unknownCommand);
       case "zapomnij":
         return this.say(s, T.forgetAsk, {
-          reply_markup: { inline_keyboard: [[{ text: "Tak, usuń wszystko", callback_data: "wipe" }, { text: "Nie", callback_data: "keep" }]] },
+          reply_markup: { inline_keyboard: [[{ text: "Tak, usuń wszystko", style: "danger", callback_data: "wipe" }, { text: "Nie", callback_data: "keep" }]] },
         });
       default:
         return this.say(s, T.unknownCommand);
@@ -314,7 +314,7 @@ export class Chat extends DurableObject<Env> {
       return this.say(s, T.commandModeTime(when), {
         reply_markup: {
           inline_keyboard: [
-            [{ text: T.btnRemind(when), callback_data: `s:${msg.message_id}:${Math.floor(at / 1000)}` }],
+            [{ text: T.btnRemind(when), style: "primary", callback_data: `s:${msg.message_id}:${Math.floor(at / 1000)}` }],
             await this.calendarRow(s, cleanTitle(text) || T.calendarTitle, at),
           ],
         },
@@ -335,24 +335,24 @@ export class Chat extends DurableObject<Env> {
   private reminderButtons(kind: "r" | "z", target: number, s: State, parsed: number | null = null): Button[][] {
     const now = Date.now();
     const rows: Button[][] = [];
-    if (parsed) rows.push([{ text: `⏰ ${capitalize(formatWhen(parsed, now, s.tz))}`, callback_data: `${kind}:${target}:a${Math.floor(parsed / 1000)}` }]);
+    if (parsed) rows.push([{ text: `⏰ ${capitalize(formatWhen(parsed, now, s.tz))}`, style: "primary", callback_data: `${kind}:${target}:a${Math.floor(parsed / 1000)}` }]);
     if (kind === "z") {
       rows.push([
-        { text: "+15 min", callback_data: `z:${target}:m15` },
-        { text: "+1 h", callback_data: `z:${target}:h1` },
-        { text: "Jutro 9:00", callback_data: `z:${target}:j9` },
+        { text: "+15 min", style: "primary", callback_data: `z:${target}:m15` },
+        { text: "+1 h", style: "primary", callback_data: `z:${target}:h1` },
+        { text: "Jutro 9:00", style: "primary", callback_data: `z:${target}:j9` },
       ]);
-      rows.push([{ text: T.done, callback_data: "ok" }]);
+      rows.push([{ text: T.done, style: "success", callback_data: "ok" }]);
       return rows;
     }
     rows.push([
-      { text: "Za godzinę", callback_data: `r:${target}:h1` },
-      { text: "Za 3 godziny", callback_data: `r:${target}:h3` },
+      { text: "Za godzinę", style: "primary", callback_data: `r:${target}:h1` },
+      { text: "Za 3 godziny", style: "primary", callback_data: `r:${target}:h3` },
     ]);
     rows.push([
-      { text: eveningLabel(now, s.tz), callback_data: `r:${target}:e18` },
-      { text: "Jutro 9:00", callback_data: `r:${target}:j9` },
-      { text: "Za tydzień", callback_data: `r:${target}:w1` },
+      { text: eveningLabel(now, s.tz), style: "primary", callback_data: `r:${target}:e18` },
+      { text: "Jutro 9:00", style: "primary", callback_data: `r:${target}:j9` },
+      { text: "Za tydzień", style: "primary", callback_data: `r:${target}:w1` },
     ]);
     return rows;
   }
@@ -455,7 +455,7 @@ export class Chat extends DurableObject<Env> {
     const keyboard: Button[][] = [];
     for (const at of set.slice(0, 2)) keyboard.push(await this.calendarRow(s, title, at, set.length > 1));
     for (const at of suggested) {
-      keyboard.push([{ text: T.btnRemind(formatWhen(at, now, s.tz)), callback_data: `s:${target}:${Math.floor(at / 1000)}` }]);
+      keyboard.push([{ text: T.btnRemind(formatWhen(at, now, s.tz)), style: "primary", callback_data: `s:${target}:${Math.floor(at / 1000)}` }]);
       keyboard.push(await this.calendarRow(s, title, at, suggested.length > 1));
     }
     const extra = keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {};
@@ -586,7 +586,7 @@ export class Chat extends DurableObject<Env> {
     const rows = this.reminderRows();
     if (!rows.length) return { text: T.noReminders, reply_markup: { inline_keyboard: [] as Button[][] } };
     const text = [T.remindersHeader, "", ...rows.map((r, i) => `${i + 1}. ${formatShort(r.at, s.tz)}`), "", T.remindersNote].join("\n");
-    const buttons = rows.map((r, i) => ({ text: `✕ ${i + 1}`, callback_data: `x:${r.id}` }));
+    const buttons = rows.map((r, i) => ({ text: `✕ ${i + 1}`, style: "danger" as const, callback_data: `x:${r.id}` }));
     const keyboard: Button[][] = [];
     for (let i = 0; i < buttons.length; i += 5) keyboard.push(buttons.slice(i, i + 5));
     return { text, reply_markup: { inline_keyboard: keyboard } };

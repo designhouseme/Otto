@@ -68,6 +68,7 @@ export interface Update {
 
 export interface Button {
   text: string;
+  style?: "primary" | "success" | "danger";
   callback_data?: string;
   url?: string;
   copy_text?: { text: string };
