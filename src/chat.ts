@@ -21,7 +21,8 @@ import { peppered, seal, unseal } from "./crypto";
 import { type Attachment, MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES, attachmentOf, toBase64 } from "./media";
 import { type Profile, asksForList, botSystem, toBotPlan, toneOf } from "./prompts";
 import type { BudgetKind } from "./registry";
-import { appendTasks, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
+import { appendTasks, cleanTask, findTask, parseList, renderList, shortHash, splitTasks } from "./tasks";
+import { PanelError, panelReminderAt, type PanelAction, type PanelResult, type PanelSnapshot } from "./panel";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
 import { T, TONES, USES, ZONES, zoneName } from "./texts";
 import { DAY, eveningLabel, formatShort, formatWhen, isValidTz, parseWhen, presetAt, reminderAt } from "./time";
@@ -52,6 +53,7 @@ export class Chat extends DurableObject<Env> {
   private sql: SqlStorage;
   private queue: Promise<unknown> = Promise.resolve();
   private origin = "";
+  private panelHits: number[] = [];
   private stickers: string[] | null = null;
   private wiped = false;
 
@@ -69,6 +71,73 @@ export class Chat extends DurableObject<Env> {
   handle(update: Update, origin: string) {
     this.origin = origin;
     return this.enqueue(() => this.process(update));
+  }
+
+  /** RPC panelu przechodzi przez tę samą kolejkę co wiadomości i alarmy. */
+  panel(chatId: number, action: PanelAction): Promise<PanelResult> {
+    const now = Date.now();
+    this.panelHits = this.panelHits.filter((at) => at > now - 60_000);
+    if (this.panelHits.length >= 30) return Promise.resolve({ error: "Chwilka, za dużo zmian naraz. Spróbuj za minutę.", status: 429 });
+    this.panelHits.push(now);
+    return this.enqueue(async (): Promise<PanelResult> => {
+      const s = await this.load();
+      if (s.chatId !== chatId || !s.claimed) return { error: "Napisz /start do Otta w Telegramie, a potem otwórz panel ponownie.", status: 409 };
+      try {
+        const now = Date.now();
+        if (action.action === "taskAdd" || action.action === "taskDone") {
+          const list = await this.readList(s, false);
+          if (s.listId && !list.ok) throw new PanelError(409, "Otwórz /lista w czacie, aby przywrócić listę, i odśwież panel.");
+          if (action.action === "taskAdd") {
+            const incoming = splitTasks(action.text);
+            const added = appendTasks(list.tasks, incoming);
+            if (!incoming.length) throw new PanelError(400, "Wpisz zadanie.");
+            if (added.rejected) throw new PanelError(409, T.listFull);
+            await this.writeList(s, added.tasks, list.ok);
+          } else {
+            if (s.listId !== action.listId) throw new PanelError(409, "Lista się zmieniła. Odśwież panel.");
+            const index = findTask(list.tasks, action.index, action.hash);
+            if (index < 0) throw new PanelError(409, "To zadanie jest już odhaczone. Odśwież panel.");
+            list.tasks.splice(index, 1);
+            await this.writeList(s, list.tasks, true);
+          }
+        } else if (action.action === "reminderCreate" || action.action === "reminderMove") {
+          const at = panelReminderAt(action.local, now, s.tz);
+          if (action.action === "reminderCreate") {
+            // Treść trafia wyłącznie do Telegrama. W bazie zostaje ID wysłanej wiadomości.
+            const source = await this.say(s, `📝 ${action.text}`);
+            await this.addReminder(source.message_id, at);
+            await this.say(s, T.reminderSet(formatWhen(at, now, s.tz))).catch(() => {});
+          } else {
+            if (!this.sql.exec("SELECT id FROM reminders WHERE id = ?", action.id).toArray().length) throw new PanelError(409, "To przypomnienie już zniknęło. Odśwież panel.");
+            this.sql.exec("UPDATE reminders SET at = ? WHERE id = ?", at, action.id);
+            await this.rearm();
+          }
+        } else if (action.action === "reminderDelete") {
+          this.sql.exec("DELETE FROM reminders WHERE id = ?", action.id);
+          await this.rearm();
+        } else if (action.action === "settings") {
+          s.tz = action.tz;
+          s.profile = { ...s.profile, name: action.name || undefined, tone: action.tone || undefined };
+          if (s.awaiting === "name") s.awaiting = undefined;
+        }
+        await this.ctx.storage.put("state", s);
+        return { data: await this.panelView(s) };
+      } catch (error) {
+        if (error instanceof PanelError) return { error: error.message, status: error.status };
+        throw error;
+      }
+    });
+  }
+
+  private async panelView(s: State): Promise<PanelSnapshot> {
+    // Odświeżenie panelu nigdy nie odpina wiadomości użytkownika.
+    const list = await this.readList(s, false);
+    return {
+      tz: s.tz, name: s.profile?.name ?? "", tone: toneOf(s.profile) ?? "", status: this.modeLine(s),
+      listId: s.listId ?? null, listAvailable: !s.listId || list.ok,
+      tasks: list.tasks.map((text, index) => ({ text, index, hash: shortHash(text) })),
+      reminders: this.sql.exec<{ id: number; at: number }>("SELECT id, at FROM reminders ORDER BY at").toArray().map((r) => ({ ...r, when: formatShort(r.at, s.tz) })),
+    };
   }
 
   async alarm() {
@@ -178,6 +247,8 @@ export class Chat extends DurableObject<Env> {
         return this.remindCommand(s, msg, arg);
       case "przypomnienia":
         return this.showReminders(s);
+      case "panel":
+        return this.say(s, T.panel, { reply_markup: { inline_keyboard: [[{ text: T.btnPanel, style: "primary", web_app: { url: `${this.origin}/panel/` } }]] } });
       case "klucz":
         return this.keyCommand(s, arg);
       case "model":
@@ -511,10 +582,11 @@ export class Chat extends DurableObject<Env> {
    * Czyta listę z przypiętej wiadomości. getChat zwraca tylko najnowszą przypiętą,
    * więc jeśli ktoś przypiął w tym czacie coś nowszego, odpinamy wszystko i przypinamy listę z powrotem.
    */
-  private async readList(s: State): Promise<{ tasks: string[]; ok: boolean }> {
+  private async readList(s: State, restore = true): Promise<{ tasks: string[]; ok: boolean }> {
     if (!s.listId) return { tasks: [], ok: false };
     const chat_id = s.chatId;
     let pinned = (await this.tg.call<{ pinned_message?: Message }>("getChat", { chat_id })).pinned_message;
+    if (!restore && pinned?.message_id !== s.listId) return { tasks: [], ok: false };
     if (pinned?.message_id !== s.listId) {
       try {
         await this.tg.call("unpinAllChatMessages", { chat_id });

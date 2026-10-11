@@ -9,6 +9,7 @@ import { calendarFile } from "./calendar";
 import { ask } from "./site";
 import { sameSecret } from "./crypto";
 import type { Update } from "./telegram";
+import { panelApi } from "./panel";
 
 export { Chat } from "./chat";
 export { Registry } from "./registry";
@@ -37,6 +38,7 @@ export default {
       return new Response("ok");
     }
 
+    if (url.pathname === "/api/panel") return panelApi(request, env);
     if (url.pathname === "/api/ask") return ask(request, env);
     if (url.pathname === "/kalendarz" && request.method === "GET") return calendarFile(env, url);
     if (url.pathname.startsWith("/admin/")) return admin(request, env, url);

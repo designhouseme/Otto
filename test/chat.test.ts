@@ -89,5 +89,43 @@ describe("własny termin bez AI", () => {
     expect(f.pending()).toBeUndefined();
     expect(fake.calls.every((c) => c.method === "answerCallbackQuery")).toBe(true);
   });
+  it("otwiera panel przez przycisk Mini App", async () => {
+    const f = fixture();
+    await f.send("/panel");
+    expect(fake.calls.at(-1)?.params).toMatchObject({ reply_markup: { inline_keyboard: [[{ style: "primary", web_app: { url: "https://otto.test/panel/" } }]] } });
+  });
+});
 
+describe("powiązanie panelu z rozmową", () => {
+  it("odmawia dostępu do cudzej rozmowy i nie zmienia ustawień", async () => {
+    const f = fixture();
+    expect(await f.chat.panel(CHAT + 1, { action: "settings", name: "Intruz", tz: "Europe/London", tone: "warm" })).toMatchObject({ status: 409 });
+    expect(f.state().tz).toBe("Europe/Warsaw");
+    expect(fake.calls).toHaveLength(0);
+  });
+  it("udostępnia tylko metadane i serializuje zmiany strefy", async () => {
+    const f = fixture();
+    await Promise.all([
+      f.chat.panel(CHAT, { action: "settings", name: "Ola", tz: "Europe/London", tone: "technical" }),
+      f.send("/strefa Europe/Warsaw"),
+    ]);
+    const result = await f.chat.panel(CHAT, { action: "view" });
+    expect(result).toMatchObject({ data: { tz: "Europe/Warsaw", name: "Ola", tone: "technical" } });
+    expect(JSON.stringify(result)).not.toContain("key");
+  });
+  it("odświeżenie panelu nie odpina nowszej wiadomości użytkownika", async () => {
+    const f = fixture();
+    const state = f.state();
+    state.listId = 333;
+    const result = await f.chat.panel(CHAT, { action: "view" });
+    expect(result).toMatchObject({ data: { listId: 333, listAvailable: false, tasks: [] } });
+    expect(fake.calls.every((c) => c.method === "getChat")).toBe(true);
+  });
+  it("ogranicza serię żądań panelu i ponownie pozwala po upływie okna", async () => {
+    const f = fixture();
+    for (let i = 0; i < 30; i++) expect(await f.chat.panel(CHAT, { action: "view" })).toHaveProperty("data");
+    expect(await f.chat.panel(CHAT, { action: "view" })).toMatchObject({ status: 429 });
+    vi.setSystemTime(NOW + 61_000);
+    expect(await f.chat.panel(CHAT, { action: "view" })).toHaveProperty("data");
+  });
 });

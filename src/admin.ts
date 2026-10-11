@@ -12,6 +12,7 @@ import { telegram } from "./telegram";
 
 const COMMANDS = [
   { command: "lista", description: "Twoja lista zadań" },
+  { command: "panel", description: "Panel: lista, przypomnienia i ustawienia" },
   { command: "dodaj", description: "Dopisz do listy, np. /dodaj mleko, chleb" },
   { command: "przypomnij", description: "Przypomnienie, np. /przypomnij jutro o 9" },
   { command: "przypomnienia", description: "Zaplanowane przypomnienia" },
@@ -64,6 +65,7 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
       }),
     );
     await step("commands", () => tg.call("setMyCommands", { commands: COMMANDS }));
+    await step("menu", () => tg.call("setChatMenuButton", { menu_button: { type: "web_app", text: "Panel", web_app: { url: `${origin}/panel/` } } }));
     for (const id of (env.ADMIN_CHAT_IDS ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
       await step(`commands_admin_${id}`, () =>
         tg.call("setMyCommands", { commands: [...COMMANDS, ...ADMIN_COMMANDS], scope: { type: "chat", chat_id: Number(id) } }),

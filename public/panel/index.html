@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Twój Otto</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/panel/panel.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script type="module" src="/panel/panel.js"></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <img src="/stickers/happy.webp" width="72" height="72" alt="Otto">
+      <div><p class="eyebrow">TWÓJ OSOBISTY ASYSTENT</p><h1 id="greeting">Cześć, tu Otto.</h1></div>
+      <button id="refresh" class="icon-button" aria-label="Odśwież panel" title="Odśwież panel">↻</button>
+    </header>
+    <p id="feedback" class="feedback" role="status" aria-live="polite">Łączę się z Twoim Ottem…</p>
+    <section id="welcome" class="card" hidden>
+      <img src="/stickers/look.webp" width="96" height="96" alt="Otto zerka">
+      <h2>Spotkajmy się w Telegramie.</h2>
+      <p>Otwórz czat z Ottem, wpisz /panel i naciśnij „Otwórz panel”. Tutaj znajdziesz swoje zadania i przypomnienia.</p>
+    </section>
+    <div id="workspace" hidden>
+      <nav class="tabs" aria-label="Widoki panelu" role="tablist">
+        <button type="button" id="tab-tasks" role="tab" aria-selected="true" aria-controls="tasks-view" data-view="tasks">Lista <span id="task-count">0</span></button>
+        <button type="button" id="tab-reminders" role="tab" aria-selected="false" aria-controls="reminders-view" data-view="reminders" tabindex="-1">Terminy <span id="reminder-count">0</span></button>
+        <button type="button" id="tab-settings" role="tab" aria-selected="false" aria-controls="settings-view" data-view="settings" tabindex="-1">Ustawienia</button>
+      </nav>
+      <section id="tasks-view" role="tabpanel" aria-labelledby="tab-tasks">
+        <div class="section-heading"><h2>Mniej w głowie.</h2><p>Twoja lista, ta sama co w czacie.</p></div>
+        <p id="list-unavailable" class="note" hidden>Twoja lista nie jest najnowszą przypiętą wiadomością. Wpisz /lista w czacie z Ottem, a potem odśwież panel.</p>
+        <ul id="task-list" class="items" aria-label="Zadania"></ul>
+        <div id="tasks-empty" class="empty"><img src="/stickers/wink.webp" width="88" height="88" alt=""><h3>Możesz odetchnąć.</h3><p>Na liście pusto. Dopisz pierwszą rzecz poniżej.</p></div>
+        <form id="task-form" class="card compact">
+          <label for="task-text">Co masz do zrobienia?</label>
+          <div class="input-row"><input id="task-text" name="text" required maxlength="1000" placeholder="Np. kupić mleko, odebrać paczkę" autocomplete="off"><button type="submit" class="primary">Dopisz</button></div>
+        </form>
+      </section>
+      <section id="reminders-view" role="tabpanel" aria-labelledby="tab-reminders" hidden>
+        <div class="section-heading"><h2>Pamiętam za Ciebie.</h2><p class="timezone-note"></p></div>
+        <ul id="reminder-list" class="items" aria-label="Zaplanowane przypomnienia"></ul>
+        <div id="reminders-empty" class="empty"><img src="/stickers/neutral.webp" width="88" height="88" alt=""><h3>Żaden termin nie goni.</h3><p>Ustaw przypomnienie, a odezwę się o czasie.</p></div>
+        <p class="note">Treść przypomnień znajdziesz w czacie. Tutaj pokazuję terminy.</p>
+        <form id="reminder-form" class="card">
+          <h3>Nowe przypomnienie</h3>
+          <label for="reminder-text">O czym mam przypomnieć?</label>
+          <input id="reminder-text" name="text" required maxlength="500" placeholder="Np. opłacić fakturę" autocomplete="off">
+          <label for="reminder-local">Kiedy?</label>
+          <input id="reminder-local" name="local" type="datetime-local" required>
+          <p class="timezone-note small"></p>
+          <button type="submit" class="primary">Ustaw przypomnienie</button>
+        </form>
+      </section>
+      <section id="settings-view" role="tabpanel" aria-labelledby="tab-settings" hidden>
+        <div class="section-heading"><h2>Po Twojemu.</h2><p>Jak mam pisać i liczyć czas.</p></div>
+        <form id="settings-form" class="card">
+          <label for="profile-name">Jak mam się do Ciebie zwracać?</label>
+          <input id="profile-name" name="name" maxlength="30" placeholder="Imię albo ksywka (opcjonalnie)" autocomplete="off">
+          <label for="profile-tone">Styl rozmowy</label>
+          <select id="profile-tone" name="tone"><option value="">Domyślny</option><option value="warm">Serdecznie i ciepło</option><option value="technical">Rzeczowo, konkretnie</option><option value="neutral">Neutralnie</option><option value="casual">Na luzie, z humorem</option></select>
+          <label for="profile-tz">Strefa czasowa</label>
+          <input id="profile-tz" name="tz" required maxlength="100" list="timezones" placeholder="Europe/Warsaw" autocapitalize="off" spellcheck="false">
+          <datalist id="timezones"><option value="Europe/Warsaw">Polska</option><option value="Europe/London">Wielka Brytania</option><option value="Europe/Berlin">Niemcy</option><option value="Europe/Dublin">Irlandia</option><option value="America/New_York">Nowy Jork</option></datalist>
+          <p class="small">Zmiana strefy zmienia sposób wyświetlania godzin. Ustawione przypomnienia pozostają na ten sam moment.</p>
+          <button type="submit" class="primary">Zapisz ustawienia</button>
+        </form>
+        <div class="card account"><h3>Twój dostęp</h3><p id="account-status"></p><p class="small">Własny klucz AI podepniesz przez /klucz w czacie.</p></div>
+      </section>
+      <footer>Treść zostaje w Telegramie. Otto pamięta za Ciebie.</footer>
+    </div>
+    <dialog id="move-dialog">
+      <form id="move-form" class="card">
+        <h2>Zmień termin</h2>
+        <label for="move-local">Nowa data i godzina</label>
+        <input id="move-local" name="local" type="datetime-local" required>
+        <p class="timezone-note small"></p>
+        <p id="move-feedback" class="feedback error" role="alert"></p>
+        <div class="input-row"><button type="button" id="move-cancel" class="secondary">Anuluj</button><button type="submit" class="primary">Zapisz termin</button></div>
+      </form>
+    </dialog>
+    <noscript>Włącz JavaScript, żeby otworzyć panel Otta.</noscript>
+  </main>
+</body>
+</html>

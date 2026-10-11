@@ -71,6 +71,7 @@ export interface Button {
   style?: "primary" | "success" | "danger";
   callback_data?: string;
   url?: string;
+  web_app?: { url: string };
   copy_text?: { text: string };
 }
 

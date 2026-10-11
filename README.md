@@ -109,6 +109,7 @@ Gdy używam AI, treść wiadomości (także zdjęć i głosówek) trafia do dost
 
 ```text
 /lista                Twoja lista, przypięta u góry czatu
+/panel                lista, przypomnienia i ustawienia w oknie Telegrama
 /dodaj mleko, chleb   dopisuje do listy
 /przypomnij jutro o 9 przypomnienie (działa też w odpowiedzi na dowolną wiadomość)
 /przypomnienia        co i kiedy przypomnę
@@ -120,6 +121,10 @@ Gdy używam AI, treść wiadomości (także zdjęć i głosówek) trafia do dost
 /pomoc                co umiem i ile masz wiadomości
 /zapomnij             usuwam Twoje dane
 ```
+
+Panel otwierasz przez `/panel` albo przycisk „Panel” obok pola wiadomości (ustawiany przez `/admin/setup`). Możesz dopisywać i odhaczać zadania, tworzyć przypomnienia, zmieniać ich terminy i je usuwać, a także ustawić imię, styl i strefę. Treści zadań panel odczytuje z przypiętej wiadomości, a treści przypomnień pozostają w czacie: panel pokazuje tylko daty. Nowe przypomnienie z panelu najpierw wysyła swoją treść do czatu.
+
+Pod wyborem terminu i przypomnieniem jest także „Inny termin”: Otto otwiera odpowiedź, w której wpisujesz np. „w piątek po południu”, bez AI i bez komendy. Wybór jest ważny 15 minut i anulujesz go przez `/anuluj`. Przy odpowiedzi AI widać tymczasowe „Otto myśli…”. Przyciski odhaczania są zielone, ustawiania przypomnienia niebieskie, a usuwania czerwone w klientach Telegrama, które obsługują kolory.
 
 ## Własny Otto
 

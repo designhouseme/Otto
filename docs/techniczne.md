@@ -54,9 +54,13 @@ Tabela `reminders (id, msg_id, at)`: tylko numer wiadomości i godzina. Obiekt m
 
 ## Lista w przypiętej wiadomości
 
+Lista ma dwa limity: do 40 wpisów i do 4096 znaków całej wiadomości. Jeśli kolejne wpisy się nie mieszczą, Otto informuje o pełnej liście. Panel odrzuca taką operację w całości, żeby nie zgubić części wpisanych zadań.
+
 Otto edytuje własną wiadomość i czyta ją z powrotem przez `getChat` (`pinned_message`). Telegram zwraca tylko **najnowszą** przypiętą wiadomość, licząc po dacie wysłania. Jeśli ktoś przypnie w czacie z Ottem coś nowszego, Otto odpina wszystko i przypina listę z powrotem. Usunięta lista przepada, a następny wpis zaczyna nową. Limit: 40 wpisów po 160 znaków (wiadomość ma najwyżej 4096 znaków).
 
 ## Przypomnienia
+
+„Inny termin” (`c:ID_WIADOMOŚCI`) wysyła pytanie z `ForceReply`. Stan `pendingReminder` zawiera wyłącznie `target`, `promptId` i czas wygaśnięcia (15 minut). Tylko odpowiedź na aktualne pytanie trafia do parsera terminu, bez AI i bez zużywania wiadomości. Termin musi być w przyszłości, do 400 dni. Komenda, w tym `/anuluj`, kasuje ten wybór. Przypomnienie wskazuje oryginalną wiadomość, nie pytanie bota.
 
 Przypominając, Otto odpowiada na oryginalną wiadomość, więc treść widać w cytacie. Jeśli oryginał został usunięty, Telegram wysyła odpowiedź bez cytatu, a Otto zmienia ją na „ta wiadomość została usunięta”. `/przypomnienia` pokazuje tylko godziny, bo treści nie trzymamy.
 
@@ -95,6 +99,20 @@ Wiadomość dla modelu jest oznaczona (`[głosówka]`, `[zdjęcie]` i podpis), a
 `/api/ask` przyjmuje ostatnie 8 wypowiedzi (po 500 znaków), limit to 12 pytań na 10 minut i 60 na dobę z jednego adresu (hash IP) plus `SITE_DAILY_LIMIT` na całą stronę. Bez klucza, po limicie albo przy błędzie odpowiada `{ "fallback": true }`, a przeglądarka bierze gotowe odpowiedzi z `assets/app.js`. Kafelki w czacie zawsze używają gotowych odpowiedzi.
 
 Otto na stronie to jedna pętla klatek (`assets/otto.js`): miny i mruganie, sprężyny spojrzenia i pochylenia, fizyka skoku (przysiad, rozciągnięcie, lądowanie z drgnięciem), oddech, mówienie, myślenie i drzemka po 25 s bezczynności. W hero `assets/toss.js` pozwala nim rzucać: prędkość z ostatnich 90 ms ruchu ręki, grawitacja, odbicia od ścian i podłogi sekcji (współczynniki 0,7 i 0,62), toczenie z obrotem oczu (kąt = droga / promień), powrót na miejsce sprężyną krytycznie tłumioną. Enter albo spacja rzuca w losową stronę. Porozmawiać można z Ottem w rogu ekranu (na telefonie pojawia się za hero). `prefers-reduced-motion` zostawia tylko miny i mruganie.
+
+## Panel Telegram Mini App
+
+Testy bezpieczeństwa i obsługi dat: `npm test`. Lokalny test pełnego przepływu panelu: `BASE=http://127.0.0.1:8791 node scripts/panel-smoke.mjs`, przy Workerze na tym porcie z `DEV_DRY_RUN=1`, `TELEGRAM_BOT_TOKEN=123456:test-token` i `TELEGRAM_WEBHOOK_SECRET=dev-secret`. Ten skrypt nie uruchamia AI, nie podaje kluczy dostawców i akceptuje tylko adres lokalny.
+
+`public/panel/` zawiera interfejs bez frameworka: lista zadań, terminy przypomnień i ustawienia. `/panel` wysyła przycisk `web_app`, a `/admin/setup` ustawia domyślny przycisk menu „Panel” na adres HTTPS `/panel/`. Po wdrożeniu trzeba ponownie wywołać `/admin/setup`; do działania przycisku z `/panel` nie jest potrzebny dodatkowy sekret. Opcjonalnie można ustawić ten sam adres jako Main Mini App w BotFather.
+
+`POST /api/panel` przyjmuje JSON i nagłówek `Authorization: tma <Telegram.WebApp.initData>`. `src/panel.ts` weryfikuje HMAC-SHA-256 tokenem bota, obejmując wszystkie pola poza `hash`, także nowe `signature`. Sesja jest ważna godzinę, a duplikaty pól, obcy Origin, brak podpisu i zbyt duże body są odrzucane. Numer konta pochodzi wyłącznie z podpisanego `user.id`. Tryb dry-run nie wyłącza uwierzytelniania. Odpowiedzi mają `Cache-Control: no-store`.
+
+RPC `Chat.panel` używa tej samej kolejki co webhook i alarm. Panel ma limit 30 żądań na minutę na aktywny obiekt rozmowy. Nie otrzymuje zapisanych kluczy AI. Daty z formularzy są interpretowane w strefie konta; nieistniejące daty i godziny przy zmianie czasu są odrzucane. Zmiana strefy nie przesuwa już ustawionych przypomnień.
+
+Treść nowych przypomnień trafia do zwykłej wiadomości bota w Telegramie; tabela nadal zawiera tylko jej numer i termin. Lista jest czytana z przypiętej wiadomości i nie jest kopiowana do bazy ani localStorage. Jeśli najnowszą pinezką jest inna wiadomość, panel informuje o potrzebie `/lista`, zamiast odpinać wiadomości podczas odświeżania. Odhaczanie w panelu sprawdza numer aktualnej listy i odcisk zadania, żeby stary widok nie usuwał innego wpisu.
+
+Przed pracą modelu `Telegram.thinking` wysyła `sendMessageDraft` z „Otto myśli…”. To tymczasowy podgląd, nie streaming JSON-a z planem modelu. Szkic znika po odpowiedzi lub po 30 sekundach. Wywołanie ma krótki timeout i fallback do `sendChatAction`, więc awaria statusu nie blokuje odpowiedzi.
 
 ## Znane ograniczenia
 
