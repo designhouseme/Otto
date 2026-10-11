@@ -194,6 +194,7 @@ function dryRun(method: string, params: Record<string, unknown>): unknown {
         date: Math.floor(Date.now() / 1000),
         chat,
         text: String(params.text ?? ""),
+        ...(params.reply_markup ? { reply_markup: params.reply_markup as Keyboard } : {}),
         ...(reply ? { reply_to_message: sent.get(reply.message_id) ?? { message_id: reply.message_id, date: 0, chat } } : {}),
       };
       sent.set(message.message_id, message);
@@ -201,7 +202,10 @@ function dryRun(method: string, params: Record<string, unknown>): unknown {
     }
     case "editMessageText": {
       const message = sent.get(Number(params.message_id));
-      if (message) message.text = String(params.text ?? "");
+      if (message) {
+        message.text = String(params.text ?? "");
+        if (params.reply_markup) message.reply_markup = params.reply_markup as Keyboard;
+      }
       return message ?? true;
     }
     case "pinChatMessage":

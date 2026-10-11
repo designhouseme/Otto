@@ -40,6 +40,8 @@ interface State {
   onboarded?: boolean;
   awaiting?: "key" | "name";
   listId?: number;
+  /** Tylko identyfikatory i czas ważności, bez treści wiadomości. */
+  pendingReminder?: { target: number; promptId: number; expires: number };
 }
 
 const MOOD_ORDER = ["neutral", "happy", "look", "wink", "wow", "think"] as const;
@@ -136,6 +138,9 @@ export class Chat extends DurableObject<Env> {
     }
 
     if (text.startsWith("/")) return this.command(s, msg, text);
+    if (s.pendingReminder && msg.reply_to_message?.message_id === s.pendingReminder.promptId) {
+      return this.customTimeReply(s, text);
+    }
     if (s.awaiting === "name" && text) return this.gotName(s, text);
     // Ktoś napisał coś innego niż klucz: wracamy do zwykłej rozmowy.
     if (s.awaiting === "key") s.awaiting = undefined;
@@ -151,6 +156,7 @@ export class Chat extends DurableObject<Env> {
     const name = head.slice(1).split("@")[0].toLowerCase();
     const arg = text.slice(head.length).trim();
     if (name !== "anuluj" && s.awaiting) s.awaiting = undefined;
+    s.pendingReminder = undefined;
 
     switch (name) {
       case "start":
@@ -315,6 +321,7 @@ export class Chat extends DurableObject<Env> {
         reply_markup: {
           inline_keyboard: [
             [{ text: T.btnRemind(when), style: "primary", callback_data: `s:${msg.message_id}:${Math.floor(at / 1000)}` }],
+            [{ text: T.btnCustomTime, callback_data: `c:${msg.message_id}` }],
             await this.calendarRow(s, cleanTitle(text) || T.calendarTitle, at),
           ],
         },
@@ -342,6 +349,7 @@ export class Chat extends DurableObject<Env> {
         { text: "+1 h", style: "primary", callback_data: `z:${target}:h1` },
         { text: "Jutro 9:00", style: "primary", callback_data: `z:${target}:j9` },
       ]);
+      rows.push([{ text: T.btnCustomTime, callback_data: `c:${target}` }]);
       rows.push([{ text: T.done, style: "success", callback_data: "ok" }]);
       return rows;
     }
@@ -354,6 +362,7 @@ export class Chat extends DurableObject<Env> {
       { text: "Jutro 9:00", style: "primary", callback_data: `r:${target}:j9` },
       { text: "Za tydzień", style: "primary", callback_data: `r:${target}:w1` },
     ]);
+    rows.push([{ text: T.btnCustomTime, callback_data: `c:${target}` }]);
     return rows;
   }
 
@@ -458,6 +467,7 @@ export class Chat extends DurableObject<Env> {
       keyboard.push([{ text: T.btnRemind(formatWhen(at, now, s.tz)), style: "primary", callback_data: `s:${target}:${Math.floor(at / 1000)}` }]);
       keyboard.push(await this.calendarRow(s, title, at, suggested.length > 1));
     }
+    if (suggested.length) keyboard.push([{ text: T.btnCustomTime, callback_data: `c:${target}` }]);
     const extra = keyboard.length ? { reply_markup: { inline_keyboard: keyboard } } : {};
 
     // Lista i przypomnienia to osobne rzeczy, a model lubi dopisać na listę to, o czym ma przypomnieć.
@@ -565,6 +575,30 @@ export class Chat extends DurableObject<Env> {
 
   // ---- przypomnienia ----
 
+  private async askCustomTime(s: State, target: number, retry = false) {
+    const prompt = await this.say(s, retry ? T.customTimeInvalid : T.customTime, {
+      reply_parameters: { message_id: target, allow_sending_without_reply: true },
+      reply_markup: { force_reply: true, input_field_placeholder: "Np. jutro o 9 albo za 45 minut" },
+    });
+    s.pendingReminder = { target, promptId: prompt.message_id, expires: Date.now() + 15 * 60_000 };
+  }
+
+  private async customTimeReply(s: State, text: string) {
+    const pending = s.pendingReminder!;
+    const now = Date.now();
+    if (pending.expires < now) {
+      s.pendingReminder = undefined;
+      return this.say(s, T.customTimeExpired);
+    }
+    const at = parseWhen(text, now, s.tz);
+    if (!at || at < now + 30_000 || at > now + 400 * DAY) return this.askCustomTime(s, pending.target, true);
+    await this.addReminder(pending.target, at);
+    s.pendingReminder = undefined;
+    // Po pomyślnym ustawieniu pytanie przestaje otwierać pole odpowiedzi.
+    await this.edit(s, pending.promptId, T.customTimeClosed).catch(() => {});
+    return this.say(s, T.reminderSet(formatWhen(at, now, s.tz)), { reply_markup: { inline_keyboard: [await this.calendarRow(s, T.calendarTitle, at)] } });
+  }
+
   private async remindCommand(s: State, msg: Message, arg: string) {
     const replied = msg.reply_to_message?.message_id;
     if (!arg && !replied) return this.say(s, T.remindUsage);
@@ -651,6 +685,16 @@ export class Chat extends DurableObject<Env> {
     const b = rest.join(":");
     const message = q.message;
     let toast: string | undefined;
+
+    // Szybko zatrzymujemy spinner, także gdy zaraz pobierzemy listę albo wyślemy pytanie.
+    if (q.data?.startsWith("c:")) {
+      await this.tg.call("answerCallbackQuery", { callback_query_id: q.id }).catch(() => {});
+      const target = Number(a);
+      if (!Number.isSafeInteger(target) || target <= 0) return;
+      s.awaiting = undefined;
+      await this.askCustomTime(s, target);
+      return;
+    }
 
     switch (kind) {
       case "p":

@@ -116,6 +116,11 @@ export const T = {
   reminderOrphan: "⏰ Miałem Ci o czymś przypomnieć, ale ta wiadomość została usunięta.",
   remindUsage: "Napisz, kiedy i o czym, np. /przypomnij jutro o 9 faktura. Możesz też odpowiedzieć tak na dowolną wiadomość, także na zdjęcie.",
   remindWhen: "Kiedy mam Ci o tym przypomnieć?",
+  btnCustomTime: "Inny termin",
+  customTime: "Kiedy mam Ci o tym przypomnieć? Odpowiedz np. „w piątek po południu” albo „za 45 minut”. Anulujesz przez /anuluj.",
+  customTimeInvalid: "Nie rozumiem tego terminu. Odpowiedz np. „jutro o 9” albo „za 45 minut”. Termin może być najdalej za 400 dni. Anulujesz przez /anuluj.",
+  customTimeExpired: "Ten wybór terminu wygasł. Kliknij ponownie „Inny termin”.",
+  customTimeClosed: "✓ Termin wybrany.",
   notUnderstoodTime: "Nie rozumiem tego terminu. Wybierz:",
   done: "✓ Zrobione",
   timePassed: "Ta godzina już minęła",
@@ -127,7 +132,6 @@ export const T = {
   addUsage: "Napisz, co dopisać, np. /dodaj kupić mleko, odebrać paczkę",
   staleList: "To stara wersja listy. Aktualna jest przypięta u góry.",
   oldListNote: "Ta lista jest nieaktualna. Aktualna jest przypięta u góry.",
-
   listFull: "Lista jest pełna. Odhacz kilka wpisów, zanim dopiszesz kolejne.",
 
   // Własny klucz
