@@ -2,7 +2,7 @@
 
 Historia zmian w projekcie. Daty odpowiadają zmianom w repozytorium; sekcja „Niewydane” czeka na wdrożenie bota.
 
-## Niewydane
+## 2026-10-11
 
 ### Nowości
 - Panel w Telegramie: lista zadań, przypomnienia i ustawienia w jednym oknie. Otworzysz go komendą `/panel` albo przyciskiem „Panel” przy polu wiadomości.
