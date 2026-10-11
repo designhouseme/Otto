@@ -128,6 +128,8 @@ Pod wyborem terminu i przypomnieniem jest także „Inny termin”: Otto otwiera
 
 ## Własny Otto
 
+Historię zmian znajdziesz w [CHANGELOG.md](CHANGELOG.md). Z tego samego pliku powstaje widok „Co nowego” pod `/nowosci/`, podlinkowany w menu i stopce strony. Nowe funkcje czekające na wdrożenie opisujemy w sekcji „Niewydane”.
+
 Otto działa na Cloudflare Workers i Durable Objects (z ich wbudowanym SQLite), bez frameworka i bez osobnej bazy danych. Jak jest zbudowany, opisuje [docs/techniczne.md](docs/techniczne.md).
 
 <details>

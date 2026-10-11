@@ -96,6 +96,10 @@ Wiadomość dla modelu jest oznaczona (`[głosówka]`, `[zdjęcie]` i podpis), a
 
 ## Strona
 
+`CHANGELOG.md` jest jedynym źródłem historii zmian. `scripts/changelog.mjs` generuje z niego `public/nowosci/index.html`, bez JavaScriptu w przeglądarce. `build.command` w `wrangler.jsonc` uruchamia generator przed `wrangler dev` i `wrangler deploy`, także gdy polecenie wywołujesz bezpośrednio, bez npm. Wynik jest pomijany w Git: na GitHubie edytujesz Markdown, a kolejne wdrożenie aktualizuje stronę. Sam push do repozytorium nie wdraża Workera; automatyczny deploy po pushu wymaga podłączenia repozytorium w Cloudflare Workers Builds.
+
+Wpisy mają nagłówki `## Niewydane` (opcjonalnie, na początku) albo `## YYYY-MM-DD`, od najnowszych do najstarszych. Pod nimi są sekcje `### Nowości`, `### Ulepszenia`, `### Poprawki` i punkty `- opis`. Komendy można wyróżnić backtickami. Przy wydaniu zamień „Niewydane” na datę i dopiero wtedy dopisuj następne zapowiedzi. Nieobsługiwany zapis i błędne daty zatrzymują build, a HTML w treści jest escapowany. Lokalny podgląd wygenerujesz przez `npm run changelog`.
+
 `/api/ask` przyjmuje ostatnie 8 wypowiedzi (po 500 znaków), limit to 12 pytań na 10 minut i 60 na dobę z jednego adresu (hash IP) plus `SITE_DAILY_LIMIT` na całą stronę. Bez klucza, po limicie albo przy błędzie odpowiada `{ "fallback": true }`, a przeglądarka bierze gotowe odpowiedzi z `assets/app.js`. Kafelki w czacie zawsze używają gotowych odpowiedzi.
 
 Otto na stronie to jedna pętla klatek (`assets/otto.js`): miny i mruganie, sprężyny spojrzenia i pochylenia, fizyka skoku (przysiad, rozciągnięcie, lądowanie z drgnięciem), oddech, mówienie, myślenie i drzemka po 25 s bezczynności. W hero `assets/toss.js` pozwala nim rzucać: prędkość z ostatnich 90 ms ruchu ręki, grawitacja, odbicia od ścian i podłogi sekcji (współczynniki 0,7 i 0,62), toczenie z obrotem oczu (kąt = droga / promień), powrót na miejsce sprężyną krytycznie tłumioną. Enter albo spacja rzuca w losową stronę. Porozmawiać można z Ottem w rogu ekranu (na telefonie pojawia się za hero). `prefers-reduced-motion` zostawia tylko miny i mruganie.

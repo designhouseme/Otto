@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "types": "wrangler types",
     "assets": "node scripts/assets.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "changelog": "node scripts/changelog.mjs"
   },
   "devDependencies": {
     "motion": "^14.0.0",

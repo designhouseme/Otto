@@ -1,0 +1,34 @@
+.updates { max-width: 960px; padding: 64px var(--gutter) 88px; margin: 0 auto; }
+.updates-page .top { flex-wrap: wrap; }
+.updates-nav { font-size: 15px; font-weight: 700; }
+.updates-nav a { text-decoration: none; padding: 10px 0; }
+.updates-intro { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-bottom: 56px; }
+.eyebrow { font-size: 13px; letter-spacing: .1em; font-weight: 800; color: var(--muted); margin-bottom: 16px; }
+.updates h1 { font-size: clamp(48px, 8vw, 84px); line-height: 1; letter-spacing: -.035em; font-weight: 800; }
+.updates-intro .text-link { display: inline-block; margin-top: 24px; font-size: 16px; }
+.updates-otto { flex: none; background: var(--sun); border-radius: 50%; padding: 20px; transform: rotate(-8deg); }
+.releases { display: grid; gap: 28px; }
+.release { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: clamp(24px, 4vw, 40px); scroll-margin-top: 90px; }
+.release-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.release-badge { padding: 6px 12px; border-radius: 99px; background: var(--cream); color: var(--ink); }
+.release-badge.pending { background: var(--sun); }
+.release h2 { font-size: clamp(28px, 4vw, 40px); max-width: none; }
+.release h2 a { text-decoration: none; }
+.release h2 a:hover { text-decoration: underline; text-underline-offset: 5px; }
+.release-note { margin-top: 12px; color: var(--muted); font-size: 16px; }
+.release-group { margin-top: 28px; }
+.release-group h3 { font-size: 18px; margin-bottom: 12px; }
+.release-group ul { list-style: disc; padding-left: 22px; font-size: 17px; }
+.release-group li { padding-left: 4px; overflow-wrap: anywhere; }
+.release-group li + li { margin-top: 10px; }
+.release code { font: 600 .85em/1.5 ui-monospace, monospace; background: var(--cream); padding: 2px 5px; border-radius: 5px; }
+@media (max-width: 619px) {
+  .updates { padding-top: 40px; }
+  .updates-intro { align-items: flex-start; position: relative; padding-right: 0; margin-bottom: 36px; }
+  .updates-otto { padding: 8px; width: 80px; position: absolute; top: 28px; right: 0; }
+  .updates-otto img { width: 64px; height: 64px; }
+  .updates h1 { padding-right: 80px; }
+  .updates .section-lead { font-size: 17px; }
+  .updates-nav { font-size: 13px; }
+  .updates-nav a { display: inline-block; }
+}
