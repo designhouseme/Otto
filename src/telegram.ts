@@ -103,14 +103,14 @@ export class Telegram {
     private readonly dry: boolean,
   ) {}
 
-  async call<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  async call<T = unknown>(method: string, params: Record<string, unknown> = {}, timeoutMs = 15_000): Promise<T> {
     if (this.dry) return dryRun(method, params) as T;
     if (!this.token) throw new Error("Brak TELEGRAM_BOT_TOKEN.");
     const response = await fetch(`https://api.telegram.org/bot${this.token}/${method}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(params),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     return this.unwrap<T>(method, response);
   }
@@ -156,6 +156,15 @@ export class Telegram {
       link_preview_options: { is_disabled: true },
       ...extra,
     });
+  }
+
+  /** Szkic znika po odpowiedzi lub po 30 s. Starszy Bot API: zwykły status pisania. */
+  async thinking(chatId: number, draftId: number) {
+    try {
+      await this.call("sendMessageDraft", { chat_id: chatId, draft_id: draftId, text: "Otto myśli…" }, 1500);
+    } catch {
+      await this.call("sendChatAction", { chat_id: chatId, action: "typing" }, 1500).catch(() => {});
+    }
   }
 
   private async unwrap<T>(method: string, response: Response): Promise<T> {

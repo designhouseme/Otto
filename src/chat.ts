@@ -377,9 +377,9 @@ export class Chat extends DurableObject<Env> {
       if (mode === "free") s.freeLeft += 1;
       await this.refund("bot");
     };
-    this.tg.call("sendChatAction", { chat_id: s.chatId, action: "typing" }).catch(() => {});
     // Całość (pobranie pliku, transkrypcja, model) musi się zmieścić w ok. 30 s, które Worker ma po odpowiedzi Telegramowi.
     const deadline = Date.now() + (attachment ? 24_000 : 20_000);
+    await this.tg.thinking(s.chatId, msg.message_id);
 
     const list = await this.readList(s);
     const replyTo = msg.reply_to_message?.text ?? msg.reply_to_message?.caption;
