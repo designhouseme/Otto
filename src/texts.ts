@@ -128,6 +128,8 @@ export const T = {
   staleList: "To stara wersja listy. Aktualna jest przypięta u góry.",
   oldListNote: "Ta lista jest nieaktualna. Aktualna jest przypięta u góry.",
 
+  listFull: "Lista jest pełna. Odhacz kilka wpisów, zanim dopiszesz kolejne.",
+
   // Własny klucz
   keyInfo: (has: string | null) =>
     [

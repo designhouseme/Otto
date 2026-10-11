@@ -21,7 +21,7 @@ import { peppered, seal, unseal } from "./crypto";
 import { type Attachment, MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES, attachmentOf, toBase64 } from "./media";
 import { type Profile, asksForList, botSystem, toBotPlan, toneOf } from "./prompts";
 import type { BudgetKind } from "./registry";
-import { MAX_TASKS, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
+import { appendTasks, cleanTask, findTask, parseList, renderList, splitTasks } from "./tasks";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
 import { T, TONES, USES, ZONES, zoneName } from "./texts";
 import { DAY, eveningLabel, formatShort, formatWhen, isValidTz, parseWhen, presetAt, reminderAt } from "./time";
@@ -467,10 +467,12 @@ export class Chat extends DurableObject<Env> {
     if (plan.add.length || plan.done.length) {
       const kept = list.tasks.filter((_, i) => !plan.done.includes(i + 1));
       const added = plan.add.map(cleanTask).filter(Boolean);
-      const tasks = [...kept, ...added].slice(0, MAX_TASKS);
+      const result = appendTasks(kept, added);
+      const tasks = result.tasks;
       await this.writeList(s, tasks, list.ok);
-      if (added.length) lines.push(`📋 Dopisane do listy (${tasks.length}).`);
+      if (result.added) lines.push(`📋 Dopisane do listy (${tasks.length}).`);
       if (kept.length < list.tasks.length) lines.push(`✓ Odhaczone: ${list.tasks.length - kept.length}.`);
+      if (result.rejected) lines.push(T.listFull);
     }
 
     const body = [plan.reply, lines.join("\n")].filter(Boolean).join("\n\n") || "👌";
@@ -553,9 +555,12 @@ export class Chat extends DurableObject<Env> {
     const items = arg ? splitTasks(arg) : [cleanTask(source)].filter(Boolean);
     if (!items.length) return this.say(s, T.addUsage);
     const list = await this.readList(s);
-    const tasks = [...list.tasks, ...items].slice(0, MAX_TASKS);
-    await this.writeList(s, tasks, list.ok);
-    await this.react(s, msg.message_id, "👌");
+    const result = appendTasks(list.tasks, items);
+    if (result.added) {
+      await this.writeList(s, result.tasks, list.ok);
+      await this.react(s, msg.message_id, "👌");
+    }
+    if (result.rejected) await this.say(s, T.listFull);
   }
 
   // ---- przypomnienia ----

@@ -8,6 +8,7 @@ import type { Keyboard } from "./telegram";
 
 export const MAX_TASKS = 40;
 export const MAX_TASK_LENGTH = 160;
+export const MAX_LIST_LENGTH = 4096;
 const TITLE = "📋 Twoja lista";
 
 export function parseList(text: string): string[] {
@@ -27,6 +28,18 @@ export function renderList(tasks: string[]): { text: string; reply_markup: Keybo
   const rows = [];
   for (let i = 0; i < buttons.length; i += 5) rows.push(buttons.slice(i, i + 5));
   return { text, reply_markup: { inline_keyboard: rows } };
+}
+
+/** Dopisujemy tylko wpisy, które mieszczą się w jednej wiadomości Telegrama. */
+export function appendTasks(current: string[], incoming: string[]) {
+  const tasks = [...current];
+  let added = 0;
+  for (const task of incoming) {
+    if (tasks.length >= MAX_TASKS || renderList([...tasks, task]).text.length > MAX_LIST_LENGTH) break;
+    tasks.push(task);
+    added++;
+  }
+  return { tasks, added, rejected: incoming.length - added };
 }
 
 /** Czyści wpis: jedna linia, bez numeracji i myślnika na początku, z limitem długości. */
