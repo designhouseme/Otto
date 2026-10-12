@@ -128,7 +128,7 @@ Panel otwierasz przez `/panel` albo przycisk „Panel” obok pola wiadomości (
   <img src="docs/readme/panel-kalendarz.png" width="40%" alt="Kalendarz w panelu Otta: listopad 2026 z kropkami w dniach z przypomnieniami, wybrana środa 11 listopada podpisana jako Święto Niepodległości i dwa przypomnienia tego dnia, o 10:00 i 13:30, z przyciskami Pokaż, Zmień i Usuń">
 </p>
 
-Pod wyborem terminu i przypomnieniem jest także „Inny termin”: Otto otwiera odpowiedź, w której wpisujesz np. „w piątek po południu”, bez AI i bez komendy. Wybór jest ważny 15 minut i anulujesz go przez `/anuluj`. Przy odpowiedzi AI widać tymczasowe „Otto myśli…”. Przyciski odhaczania są zielone, ustawiania przypomnienia niebieskie, a usuwania czerwone w klientach Telegrama, które obsługują kolory.
+Pod wyborem terminu i przypomnieniem jest także „Inny termin”: Otto otwiera odpowiedź, w której wpisujesz np. „w piątek po południu”, bez AI i bez komendy. Wybór jest ważny 15 minut i anulujesz go przez `/anuluj`. Gdy przygotowuję odpowiedź AI, w nagłówku czatu widać „pisze…”, które znika razem z odpowiedzią. Przyciski odhaczania są zielone, ustawiania przypomnienia niebieskie, a usuwania czerwone w klientach Telegrama, które obsługują kolory.
 
 ## Własny Otto
 

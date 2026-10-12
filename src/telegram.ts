@@ -99,6 +99,9 @@ export function telegram(env: Env) {
 }
 
 export class Telegram {
+  private typingTimer?: ReturnType<typeof setInterval>;
+  private typingCall: Promise<unknown> = Promise.resolve();
+
   constructor(
     private readonly token: string | undefined,
     private readonly dry: boolean,
@@ -150,7 +153,12 @@ export class Telegram {
     return bytes;
   }
 
-  send(chatId: number, text: string, extra: Record<string, unknown> = {}) {
+  async send(chatId: number, text: string, extra: Record<string, unknown> = {}) {
+    // Wiadomość kończy „pisze…”. Najpierw czekamy na trwające odświeżenie statusu, żeby nie dotarło po niej i nie wróciło na 5 s.
+    if (this.typingTimer) {
+      this.stopTyping();
+      await this.typingCall;
+    }
     return this.call<Message>("sendMessage", {
       chat_id: chatId,
       text,
@@ -159,13 +167,22 @@ export class Telegram {
     });
   }
 
-  /** Szkic znika po odpowiedzi lub po 30 s. Starszy Bot API: zwykły status pisania. */
-  async thinking(chatId: number, draftId: number) {
-    try {
-      await this.call("sendMessageDraft", { chat_id: chatId, draft_id: draftId, text: "Otto myśli…" }, 1500);
-    } catch {
-      await this.call("sendChatAction", { chat_id: chatId, action: "typing" }, 1500).catch(() => {});
-    }
+  /**
+   * „Otto pisze…” w nagłówku czatu, aż wyślemy odpowiedź. Telegram trzyma ten status 5 s, więc odnawiamy go co 4 s,
+   * a znika sam, gdy przychodzi wiadomość. Nie szkic (`sendMessageDraft`): ten miał własne kropki i potrafił zostać w czacie.
+   */
+  startTyping(chatId: number) {
+    this.stopTyping();
+    const ping = () => {
+      this.typingCall = this.call("sendChatAction", { chat_id: chatId, action: "typing" }, 1500).catch(() => {});
+    };
+    ping();
+    this.typingTimer = setInterval(ping, 4000);
+  }
+
+  stopTyping() {
+    if (this.typingTimer !== undefined) clearInterval(this.typingTimer);
+    this.typingTimer = undefined;
   }
 
   private async unwrap<T>(method: string, response: Response): Promise<T> {

@@ -16,6 +16,9 @@ Historia zmian w projekcie. Daty odpowiadają zmianom w repozytorium; sekcja „
 - Główne akcje panelu są na natywnym przycisku Telegrama, a strzałka wstecz zamyka okno.
 - W ustawieniach panelu wybierzesz, do czego głównie używasz Otta. Panel podpowie też strefę telefonu, gdy różni się od zapisanej.
 
+### Poprawki
+- Zamiast dymka „Otto myśli…”, który dublował kropki i potrafił zostać w czacie, Otto pokazuje w nagłówku zwykłe „pisze…”. Status znika razem z odpowiedzią.
+
 ## 2026-10-11
 
 ### Nowości

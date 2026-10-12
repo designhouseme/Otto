@@ -126,10 +126,10 @@ Panel nie zna treści przypomnień. Akcja `reminderShow` wysyła w czacie odpowi
 
 Treść nowych przypomnień trafia do zwykłej wiadomości bota w Telegramie; tabela nadal zawiera tylko jej numer i termin. Lista jest czytana z przypiętej wiadomości i nie jest kopiowana do bazy ani localStorage. Jeśli najnowszą pinezką jest inna wiadomość, panel informuje o potrzebie `/lista`, zamiast odpinać wiadomości podczas odświeżania. Odhaczanie w panelu sprawdza numer aktualnej listy i odcisk zadania, żeby stary widok nie usuwał innego wpisu.
 
-Przed pracą modelu `Telegram.thinking` wysyła `sendMessageDraft` z „Otto myśli…”. To tymczasowy podgląd, nie streaming JSON-a z planem modelu. Szkic znika po odpowiedzi lub po 30 sekundach. Wywołanie ma krótki timeout i fallback do `sendChatAction`, więc awaria statusu nie blokuje odpowiedzi.
+Gdy pracuje model, `Telegram.startTyping` pokazuje w nagłówku czatu „pisze…” (`sendChatAction`). Telegram trzyma ten status 5 sekund, więc odnawiamy go co 4 sekundy, aż `send` wyśle pierwszą wiadomość; `stopTyping` w `finally` zatrzymuje go także po błędzie. Przed wysłaniem wiadomości `send` czeka na trwające odświeżenie, bo status, który dotarłby po wiadomości, wróciłby na 5 sekund. Każde wywołanie ma krótki timeout, a awaria statusu nie blokuje odpowiedzi. Wcześniej był tu szkic `sendMessageDraft` z „Otto myśli…”, ale Telegram rysuje szkic z własnymi animowanymi kropkami (wychodziły podwójne), a dymek potrafił zostać w czacie po odpowiedzi. Szkic ma sens dopiero przy prawdziwym strumieniowaniu treści odpowiedzi.
 
 ## Znane ograniczenia
 
 - Checklisty Telegrama (`sendChecklist`) są dostępne tylko dla kont biznesowych, dlatego lista to zwykła przypięta wiadomość.
-- Odpowiedzi AI nie są jeszcze strumieniowane (`sendMessageDraft`): Otto pokazuje „pisze…” i wysyła całość.
+- Odpowiedzi AI nie są strumieniowane (`sendMessageDraft`), bo model zwraca plan w JSON-ie, a nie gotowy tekst: Otto pokazuje „pisze…” i wysyła całość.
 - Naklejki są statyczne (WebP). Animowane wymagałyby WebM VP9 z przezroczystością.
