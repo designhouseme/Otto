@@ -58,6 +58,10 @@ describe("polecenia panelu", () => {
     expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", use: "praca" })).toMatchObject({ use: "praca" });
     expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", use: "" })).toMatchObject({ use: "" });
     expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw" })).not.toHaveProperty("use");
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw" })).not.toHaveProperty("digest");
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", digest: 7 })).toMatchObject({ digest: 7 });
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", digest: null })).toMatchObject({ digest: null });
+    for (const digest of [-1, 24, 7.5, "7", false]) expect(() => panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", digest })).toThrow();
     for (const b of [{ action: "reminderShow", id: "7" }, { action: "reminderShow", id: 0 }, ...["toString", "__proto__", "firma", 5, null].map((use) => ({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", use }))]) {
       expect(() => panelAction(b)).toThrow();
     }
@@ -88,7 +92,7 @@ describe("API panelu", () => {
     expect(result.status).toBe(200);
     expect(result.headers.get("cache-control")).toBe("no-store");
     expect(idFromName).toHaveBeenCalledWith("123456789");
-    expect(panel).toHaveBeenCalledWith(123456789, { action: "view" });
+    expect(panel).toHaveBeenCalledWith(123456789, { action: "view" }, "https://otto.test");
   });
   it("blokuje fałszywy podpis, obcy origin, duże body i błędny JSON", async () => {
     const { env, panel } = environment();

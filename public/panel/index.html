@@ -51,8 +51,9 @@
           <div class="weekdays" aria-hidden="true"><span>pn</span><span>wt</span><span>śr</span><span>cz</span><span>pt</span><span>sb</span><span>nd</span></div>
           <div id="month-grid" class="month-grid" role="group" aria-label="Dni miesiąca"></div>
         </div>
-        <button type="button" id="reminder-new" class="primary wide">Nowe przypomnienie</button>
+        <button type="button" id="reminder-new" class="primary wide native-hide">Nowe przypomnienie</button>
         <div class="agenda-heading"><h3 id="agenda-title">Wszystkie terminy</h3><button type="button" id="agenda-all" class="link-button" hidden>Pokaż wszystkie</button></div>
+        <p id="agenda-holiday" class="holiday-note" hidden></p>
         <ul id="reminder-list" class="items" aria-labelledby="agenda-title"></ul>
         <div id="reminders-empty" class="empty"><img src="/stickers/neutral.webp" width="88" height="88" alt=""><h3 id="reminders-empty-title">Żaden termin nie goni.</h3><p id="reminders-empty-text">Ustaw przypomnienie, a odezwę się o czasie.</p></div>
         <p class="note">Treść przypomnień zostaje w czacie. „Pokaż” wyśle Ci ją tam jako cytat.</p>
@@ -66,12 +67,15 @@
           <select id="profile-tone" name="tone"><option value="">Domyślny</option><option value="warm">Serdecznie i ciepło</option><option value="technical">Rzeczowo, konkretnie</option><option value="neutral">Neutralnie</option><option value="casual">Na luzie, z humorem</option></select>
           <label for="profile-use">Do czego głównie mnie używasz?</label>
           <select id="profile-use" name="use"><option value="">Nie wybrano</option><option value="praca">Praca</option><option value="dom">Dom</option><option value="nauka">Nauka</option><option value="wszystko">Wszystko po trochu</option></select>
+          <label for="profile-digest">Plan dnia</label>
+          <select id="profile-digest" name="digest"><option value="">Wyłączony</option><option value="6">Codziennie o 6:00</option><option value="7">Codziennie o 7:00</option><option value="8">Codziennie o 8:00</option><option value="9">Codziennie o 9:00</option><option value="10">Codziennie o 10:00</option></select>
+          <p class="small">Rano napiszę w czacie, o której są dziś przypomnienia i co masz na liście. Gdy nic nie ma, nie piszę.</p>
           <label for="profile-tz">Strefa czasowa</label>
           <input id="profile-tz" name="tz" required maxlength="100" list="timezones" placeholder="Europe/Warsaw" autocapitalize="off" spellcheck="false">
           <p id="tz-device" class="small" hidden><span></span> <button type="button" id="tz-device-use" class="link-button">Użyj tej strefy</button></p>
           <datalist id="timezones"><option value="Europe/Warsaw">Polska</option><option value="Europe/London">Wielka Brytania</option><option value="Europe/Berlin">Niemcy</option><option value="Europe/Dublin">Irlandia</option><option value="America/New_York">Nowy Jork</option></datalist>
           <p class="small">Zmiana strefy zmienia sposób wyświetlania godzin. Ustawione przypomnienia pozostają na ten sam moment.</p>
-          <button type="submit" class="primary">Zapisz ustawienia</button>
+          <button type="submit" class="primary native-hide">Zapisz ustawienia</button>
         </form>
         <div class="card account"><h3>Twój dostęp</h3><p id="account-status"></p><p class="small">Własny klucz AI podepniesz przez /klucz w czacie.</p></div>
       </section>
@@ -92,7 +96,7 @@
         <input id="reminder-local" name="local" type="datetime-local" required>
         <p class="timezone-note small"></p>
         <p id="reminder-feedback" class="feedback error" role="alert"></p>
-        <div class="input-row"><button type="button" id="reminder-cancel" class="secondary">Anuluj</button><button type="submit" class="primary">Ustaw przypomnienie</button></div>
+        <div class="input-row"><button type="button" id="reminder-cancel" class="secondary">Anuluj</button><button type="submit" class="primary native-hide">Ustaw przypomnienie</button></div>
       </form>
     </dialog>
     <dialog id="move-dialog">
@@ -102,7 +106,7 @@
         <input id="move-local" name="local" type="datetime-local" required>
         <p class="timezone-note small"></p>
         <p id="move-feedback" class="feedback error" role="alert"></p>
-        <div class="input-row"><button type="button" id="move-cancel" class="secondary">Anuluj</button><button type="submit" class="primary">Zapisz termin</button></div>
+        <div class="input-row"><button type="button" id="move-cancel" class="secondary">Anuluj</button><button type="submit" class="primary native-hide">Zapisz termin</button></div>
       </form>
     </dialog>
     <noscript>Włącz JavaScript, żeby otworzyć panel Otta.</noscript>

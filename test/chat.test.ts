@@ -29,15 +29,19 @@ const CHAT = 123456;
 function fixture() {
   let state: Record<string, unknown> = { chatId: CHAT, tz: "Europe/Warsaw", claimed: true, freeLeft: 10, lastUpdate: 0 };
   const reminders: { id: number; msg_id: number; at: number }[] = [];
+  const extra = new Map<string, unknown>();
   const storage = {
-    get: async () => structuredClone(state),
-    put: async (_key: string, value: Record<string, unknown>) => { state = structuredClone(value); },
-    setAlarm: vi.fn(async () => {}), deleteAlarm: vi.fn(async () => {}),
+    get: async (key: string) => structuredClone(key === "state" ? state : extra.get(key)),
+    put: async (key: string, value: Record<string, unknown>) => { if (key === "state") state = structuredClone(value); else extra.set(key, structuredClone(value)); },
+    delete: async (key: string) => extra.delete(key),
+    setAlarm: vi.fn(async (_at: number) => {}), deleteAlarm: vi.fn(async () => {}),
     sql: { exec(query: string, ...args: number[]) {
       let rows: unknown[] = [];
       if (query.startsWith("INSERT INTO reminders")) reminders.push({ id: reminders.length + 1, msg_id: args[0], at: args[1] });
+      if (query.startsWith("DELETE FROM reminders")) reminders.splice(reminders.findIndex((r) => r.id === args[0]) >>> 0, 1);
       if (query.startsWith("SELECT MIN")) rows = [{ at: reminders.length ? Math.min(...reminders.map((r) => r.at)) : null }];
-      if (query.startsWith("SELECT id")) rows = reminders;
+      if (query.startsWith("SELECT id")) rows = query.includes("at <=") ? reminders.filter((r) => r.at <= args[0]) : reminders;
+      if (query.startsWith("SELECT at")) rows = reminders;
       if (query.startsWith("SELECT msg_id")) rows = reminders.filter((r) => r.id === args[0]);
       return { toArray: () => rows, one: () => rows[0] };
     } },
@@ -46,7 +50,7 @@ function fixture() {
   let updateId = 0;
   const send = (text: string, replyId?: number) => chat.handle({ update_id: ++updateId, message: { message_id: 100 + updateId, date: NOW / 1000, chat: { id: CHAT, type: "private" }, text, ...(replyId ? { reply_to_message: { message_id: replyId, date: 0, chat: { id: CHAT, type: "private" } } } : {}) } }, "https://otto.test");
   const choose = (data: string) => chat.handle({ update_id: ++updateId, callback_query: { id: String(updateId), from: { id: CHAT, first_name: "Test" }, data, message: { message_id: 88, date: 0, chat: { id: CHAT, type: "private" } } } } satisfies Update, "https://otto.test");
-  return { chat, send, choose, reminders, storage, state: () => state, pending: () => state.pendingReminder as { target: number; promptId: number; expires: number } | undefined };
+  return { chat, send, choose, reminders, storage, digest: () => extra.get("digest") as { hour: number; next: number; origin?: string } | undefined, state: () => state, pending: () => state.pendingReminder as { target: number; promptId: number; expires: number } | undefined };
 }
 
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); fake.nextId = 9000; fake.calls.length = 0; });
@@ -151,5 +155,70 @@ describe("powiązanie panelu z rozmową", () => {
     expect(await f.chat.panel(CHAT, { action: "view" })).toMatchObject({ status: 429 });
     vi.setSystemTime(NOW + 61_000);
     expect(await f.chat.panel(CHAT, { action: "view" })).toHaveProperty("data");
+  });
+});
+
+describe("plan dnia", () => {
+  const settings = (digest: number | null) => ({ action: "settings" as const, name: "Ola", tz: "Europe/Warsaw", tone: "" as const, digest });
+  const sent = () => fake.calls.filter((c) => c.method === "sendMessage").map((c) => c.params);
+
+  it("planuje najbliższą godzinę w strefie konta i zapamiętuje adres panelu", async () => {
+    const f = fixture();
+    expect(await f.chat.panel(CHAT, settings(8), "https://otto.test")).toMatchObject({ data: { digest: 8 } });
+    // Teraz jest 12:00 w Warszawie, więc pierwszy plan jutro o 8:00 (6:00 UTC).
+    expect(f.digest()).toEqual({ hour: 8, next: Date.UTC(2026, 9, 9, 6), origin: "https://otto.test" });
+    expect(f.storage.setAlarm).toHaveBeenLastCalledWith(Date.UTC(2026, 9, 9, 6));
+    expect(await f.chat.panel(CHAT, { action: "settings", name: "Ola", tz: "Europe/Warsaw", tone: "" })).toMatchObject({ data: { digest: 8 } });
+  });
+  it("wysyła godziny dzisiejszych przypomnień i planuje następny dzień", async () => {
+    const f = fixture();
+    await f.chat.panel(CHAT, settings(8), "https://otto.test");
+    f.reminders.push({ id: 1, msg_id: 55, at: Date.UTC(2026, 9, 9, 13) }, { id: 2, msg_id: 56, at: Date.UTC(2026, 9, 10, 13) });
+    vi.setSystemTime(Date.UTC(2026, 9, 9, 6));
+    fake.calls.length = 0;
+    await f.chat.alarm();
+    expect(sent()).toEqual([expect.objectContaining({ text: expect.stringMatching(/^☀️ Dzień dobry, Ola! Dziś piątek, 9 października\.\n⏰ Przypomnienie o 15:00\.\n📝 Lista jest pusta\.$/), reply_markup: { inline_keyboard: [[expect.objectContaining({ web_app: { url: "https://otto.test/panel/" } })]] } })]);
+    expect(f.digest()?.next).toBe(Date.UTC(2026, 9, 10, 6));
+    expect(f.storage.setAlarm).toHaveBeenLastCalledWith(Date.UTC(2026, 9, 9, 13));
+  });
+  it("milczy w pusty dzień, wspomina święto i pomija mocno spóźniony plan", async () => {
+    const f = fixture();
+    await f.chat.panel(CHAT, settings(7));
+    vi.setSystemTime(Date.UTC(2026, 9, 9, 5));
+    fake.calls.length = 0;
+    await f.chat.alarm();
+    expect(sent()).toEqual([]);
+    expect(f.digest()?.next).toBe(Date.UTC(2026, 9, 10, 5));
+    // 11 listopada: Warszawa jest już w czasie zimowym (UTC+1).
+    vi.setSystemTime(Date.UTC(2026, 10, 10, 12));
+    await f.chat.panel(CHAT, settings(7));
+    vi.setSystemTime(Date.UTC(2026, 10, 11, 6));
+    await f.chat.alarm();
+    expect(sent().at(-1)?.text).toContain("Dziś środa, 11 listopada, Święto Niepodległości.");
+    vi.setSystemTime(Date.UTC(2026, 10, 12, 10));
+    fake.calls.length = 0;
+    await f.chat.alarm();
+    expect(sent()).toEqual([]);
+    expect(f.digest()?.next).toBe(Date.UTC(2026, 10, 13, 6));
+  });
+  it("nie nazywa pustą listy, której nie da się odczytać", async () => {
+    const f = fixture();
+    await f.chat.panel(CHAT, settings(8));
+    f.state().listId = 333;
+    f.reminders.push({ id: 1, msg_id: 55, at: Date.UTC(2026, 9, 9, 13) });
+    vi.setSystemTime(Date.UTC(2026, 9, 9, 6));
+    fake.calls.length = 0;
+    await f.chat.alarm();
+    expect(sent()[0]?.text).toContain("📝 Listę zobaczysz przez /lista.");
+  });
+  it("przelicza plan po zmianie strefy i wyłącza go razem z alarmem", async () => {
+    const f = fixture();
+    await f.chat.panel(CHAT, settings(8));
+    await f.send("/strefa America/New_York");
+    // W Nowym Jorku jest dopiero 6:00, więc najbliższa 8:00 wypada jeszcze dziś (12:00 UTC).
+    expect(f.digest()?.next).toBe(Date.UTC(2026, 9, 8, 12));
+    await f.chat.panel(CHAT, settings(null));
+    expect(f.digest()).toBeUndefined();
+    expect(f.storage.deleteAlarm).toHaveBeenCalled();
   });
 });

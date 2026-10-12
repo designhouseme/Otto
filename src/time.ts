@@ -166,6 +166,34 @@ export function eveningLabel(now: number, tz: string) {
   return dayAt(now, tz, 0, 18, 0) > now + MINUTE ? "Dziś 18:00" : "Jutro 18:00";
 }
 
+// ---- Plan dnia ----
+
+const MONTHS_OF = ["stycznia", "lutego", "marca", "kwietnia", "maja", "czerwca", "lipca", "sierpnia", "września", "października", "listopada", "grudnia"];
+
+/** Najbliższa godzina `h`:00 w strefie, z minutą zapasu: dziś, a jeśli już minęła, jutro. */
+export function nextDailyAt(now: number, tz: string, h: number) {
+  const today = dayAt(now, tz, 0, h, 0);
+  return today > now + MINUTE ? today : dayAt(now, tz, 1, h, 0);
+}
+
+/** Dzień w strefie jako „RRRR-MM-DD”. */
+export function dateKey(at: number, tz: string) {
+  const p = partsIn(at, tz);
+  return `${p.y}-${pad(p.m)}-${pad(p.d)}`;
+}
+
+/** „9:05” */
+export function formatClock(at: number, tz: string) {
+  const p = partsIn(at, tz);
+  return `${p.h}:${pad(p.mi)}`;
+}
+
+/** „wtorek, 13 października” */
+export function formatDay(at: number, tz: string) {
+  const p = partsIn(at, tz);
+  return `${WD_FULL[p.wd]}, ${p.d} ${MONTHS_OF[p.m - 1]}`;
+}
+
 // ---- Parser ----
 
 const FOLD: Record<string, string> = { ą: "a", ć: "c", ę: "e", ł: "l", ń: "n", ó: "o", ś: "s", ź: "z", ż: "z" };

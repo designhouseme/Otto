@@ -67,7 +67,7 @@ export const T = {
       "• /dodaj mleko, chleb: dopisuje do listy",
       "• /lista: Twoja lista, przypięta u góry czatu",
       "• /przypomnienia: co i kiedy przypomnę",
-      "• /panel: lista, kalendarz przypomnień i ustawienia w jednym oknie",
+      "• /panel: lista, kalendarz przypomnień, plan dnia i ustawienia w jednym oknie",
       "• /klucz: własny klucz AI, bez limitu",
       "• /osobowosc: mój styl (serdecznie, rzeczowo, neutralnie albo na luzie)",
       "• /ustawienia: jak mam się do Ciebie zwracać, mój styl i do czego mnie używasz",
@@ -125,6 +125,17 @@ export const T = {
   customTimeExpired: "Ten wybór terminu wygasł. Kliknij ponownie „Inny termin”.",
   customTimeClosed: "✓ Termin wybrany.",
   panel: "Twoja lista, kalendarz przypomnień i ustawienia w jednym miejscu.",
+  // Plan dnia (włączany w panelu): tylko godziny i lista, bo treści przypomnień nie trzymamy.
+  digest: (name: string | undefined, day: string, holiday: string | undefined, times: string[], tasks: string[] | null) =>
+    [
+      `☀️ Dzień dobry${name ? `, ${name}` : ""}! Dziś ${day}${holiday ? `, ${holiday}` : ""}.`,
+      times.length ? `⏰ ${times.length === 1 ? "Przypomnienie" : "Przypomnienia"} o ${times.join(", ")}.` : "⏰ Na dziś bez przypomnień.",
+      !tasks
+        ? "📝 Listę zobaczysz przez /lista."
+        : tasks.length
+        ? `📝 Na liście ${tasks.length} ${plural(tasks.length, "rzecz", "rzeczy", "rzeczy")}${tasks.length > 3 ? ", m.in." : ""}: ${tasks.slice(0, 3).join(", ")}.`
+        : "📝 Lista jest pusta.",
+    ].join("\n"),
   btnPanel: "Otwórz panel",
   notUnderstoodTime: "Nie rozumiem tego terminu. Wybierz:",
   done: "✓ Zrobione",

@@ -7,9 +7,13 @@ Historia zmian w projekcie. Daty odpowiadają zmianom w repozytorium; sekcja „
 ### Nowości
 - Kalendarz w panelu: miesiąc z zaznaczonymi przypomnieniami. Kliknięty dzień pokazuje swoje terminy i podpowiada datę nowego przypomnienia.
 - „Pokaż” przy przypomnieniu w panelu: Otto odpowiada w czacie na oryginalną wiadomość, więc od razu widać, czego dotyczy.
+- Plan dnia: o wybranej godzinie rano Otto pisze, o której są dziś przypomnienia i co masz na liście. Włączysz go w ustawieniach panelu.
+- Polskie święta w kalendarzu panelu, także w planie dnia.
 
 ### Ulepszenia
 - Szybkie terminy w panelu: „Za godzinę”, „Dziś 18:00”, „Jutro 9:00” i „Za tydzień”.
+- Nowe przypomnienie dodasz w oknie otwieranym spod kalendarza, z datą wybranego dnia.
+- Główne akcje panelu są na natywnym przycisku Telegrama, a strzałka wstecz zamyka okno.
 - W ustawieniach panelu wybierzesz, do czego głównie używasz Otta. Panel podpowie też strefę telefonu, gdy różni się od zapisanej.
 
 ## 2026-10-11

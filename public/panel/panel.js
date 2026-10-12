@@ -7,7 +7,10 @@ let settingsDirty = false;
 /** Kalendarz: oglądany miesiąc („RRRR-MM”) i wybrany dzień („RRRR-MM-DD”) w strefie konta. */
 let month;
 let selectedDay = null;
+let currentView = "tasks";
 const DAY_MS = 86_400_000;
+// Natywny przycisk Telegrama i strzałka wstecz zastępują przyciski na stronie, gdy klient je ma.
+const native = Boolean(tg?.initData && tg.MainButton && tg.BackButton && tg.isVersionAtLeast?.("6.1"));
 
 function feedback(text, kind = "") {
   $("feedback").textContent = text;
@@ -34,6 +37,28 @@ function setBusy(value) {
     $("task-text").disabled = true;
     $("task-form").querySelector("button").disabled = true;
   }
+  syncButtons();
+}
+
+const openDialog = () => ["reminder-dialog", "move-dialog"].map($).find((dialog) => dialog.open);
+
+/** Co robi natywny przycisk teraz: zapis w otwartym oknie, nowe przypomnienie w kalendarzu albo zapis zmienionych ustawień. */
+function mainButton() {
+  const dialog = openDialog();
+  if (dialog?.id === "reminder-dialog") return { text: "Ustaw przypomnienie", run: () => $("reminder-form").requestSubmit() };
+  if (dialog) return { text: "Zapisz termin", run: () => $("move-form").requestSubmit() };
+  if (state && currentView === "reminders") return { text: "Nowe przypomnienie", run: openReminderDialog };
+  if (state && currentView === "settings" && settingsDirty) return { text: "Zapisz ustawienia", run: () => $("settings-form").requestSubmit() };
+  return null;
+}
+
+function syncButtons() {
+  if (!native) return;
+  const main = mainButton();
+  if (openDialog()) tg.BackButton.show(); else tg.BackButton.hide();
+  if (!main) { tg.MainButton.hide(); return; }
+  tg.MainButton.setParams({ text: main.text, color: "#ffd21f", text_color: "#151515", is_active: !busy, is_visible: true });
+  if (busy) tg.MainButton.showProgress(false); else tg.MainButton.hideProgress();
 }
 
 async function request(action, notice = "") {
@@ -116,6 +141,7 @@ function renderCalendar() {
   const limit = localValue(now + 400 * DAY_MS, state.tz).slice(0, 10);
   if (!month || month < first.slice(0, 7)) month = first.slice(0, 7);
   if (month > limit.slice(0, 7)) month = limit.slice(0, 7);
+  const holidays = new Map(state.holidays.map((holiday) => [holiday.date, holiday.name]));
   const counts = new Map();
   for (const reminder of state.reminders) {
     const key = localValue(reminder.at, state.tz).slice(0, 10);
@@ -132,10 +158,12 @@ function renderCalendar() {
     const count = counts.get(key) ?? 0;
     const day = document.createElement("button");
     day.type = "button";
-    day.className = `day${key === first ? " today" : ""}${count ? " has" : ""}`;
+    const holiday = holidays.get(key);
+    day.className = `day${key === first ? " today" : ""}${count ? " has" : ""}${holiday ? " holiday" : ""}`;
     day.textContent = d;
     day.setAttribute("aria-pressed", String(key === selectedDay));
-    day.setAttribute("aria-label", `${dayLabel(key, true)}: ${count ? `${count} ${reminderWord(count)}` : "bez przypomnień"}`);
+    day.setAttribute("aria-label", `${dayLabel(key, true)}${holiday ? `, ${holiday}` : ""}: ${count ? `${count} ${reminderWord(count)}` : "bez przypomnień"}`);
+    if (holiday) day.title = holiday;
     if (key === first) day.setAttribute("aria-current", "date");
     lock(day, key < first || key > limit);
     day.addEventListener("click", () => pickDay(key));
@@ -166,6 +194,9 @@ function renderAgenda() {
   const items = state.reminders.map((reminder) => ({ ...reminder, local: localValue(reminder.at, state.tz) })).filter((reminder) => !selectedDay || reminder.local.startsWith(selectedDay));
   $("agenda-title").textContent = selectedDay ? dayLabel(selectedDay, true) : "Wszystkie terminy";
   $("agenda-all").hidden = !selectedDay;
+  const holiday = selectedDay && state.holidays.find((item) => item.date === selectedDay);
+  $("agenda-holiday").hidden = !holiday;
+  $("agenda-holiday").textContent = holiday ? holiday.name : "";
   $("reminders-empty").hidden = items.length > 0;
   $("reminders-empty-title").textContent = selectedDay ? "Wolny dzień." : "Żaden termin nie goni.";
   $("reminders-empty-text").textContent = selectedDay ? "Nic tu nie mam. Dodasz przypomnienie przyciskiem wyżej." : "Ustaw przypomnienie, a odezwę się o czasie.";
@@ -189,6 +220,7 @@ function renderAgenda() {
         $("move-feedback").textContent = "";
         $("move-local").value = reminder.local;
         $("move-dialog").showModal();
+        syncButtons();
       }, `Zmień termin przypomnienia: ${when}`),
       button("Usuń", "delete-button", async () => {
         const approved = await new Promise((resolve) => {
@@ -235,10 +267,12 @@ function render() {
     $("profile-name").value = state.name;
     $("profile-tone").value = state.tone;
     $("profile-use").value = state.use ?? "";
+    $("profile-digest").value = state.digest === null || state.digest === undefined ? "" : String(state.digest);
     $("profile-tz").value = state.tz;
   }
   renderZoneHint();
   $("account-status").textContent = state.status;
+  syncButtons();
 }
 
 function view(name, focus = false) {
@@ -249,6 +283,8 @@ function view(name, focus = false) {
     $(`${tab.dataset.view}-view`).hidden = !selected;
     if (selected && focus) tab.focus();
   });
+  currentView = name;
+  syncButtons();
 }
 
 document.querySelectorAll("[data-view]").forEach((tab, index, tabs) => {
@@ -282,20 +318,25 @@ $("tz-device-use").addEventListener("click", () => {
   $("profile-tz").value = $("tz-device").dataset.zone;
   settingsDirty = true;
   renderZoneHint();
+  syncButtons();
 });
-$("settings-form").addEventListener("input", () => { settingsDirty = true; renderZoneHint(); });
+$("settings-form").addEventListener("input", () => { settingsDirty = true; renderZoneHint(); syncButtons(); });
 $("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (await request({ action: "settings", name: $("profile-name").value, tone: $("profile-tone").value, use: $("profile-use").value, tz: $("profile-tz").value }, "Ustawienia zapisane.")) {
+  if (await request({ action: "settings", name: $("profile-name").value, tone: $("profile-tone").value, use: $("profile-use").value, digest: $("profile-digest").value === "" ? null : Number($("profile-digest").value), tz: $("profile-tz").value }, "Ustawienia zapisane.")) {
     settingsDirty = false;
     render();
+    syncButtons();
   }
 });
-$("reminder-new").addEventListener("click", () => {
+function openReminderDialog() {
   $("reminder-feedback").textContent = "";
   $("reminder-local").value = suggestedLocal();
   $("reminder-dialog").showModal();
-});
+  syncButtons();
+}
+$("reminder-new").addEventListener("click", openReminderDialog);
+for (const dialog of ["reminder-dialog", "move-dialog"]) $(dialog).addEventListener("close", syncButtons);
 $("reminder-cancel").addEventListener("click", () => $("reminder-dialog").close());
 $("move-cancel").addEventListener("click", () => $("move-dialog").close());
 $("move-form").addEventListener("submit", async (event) => {
@@ -310,6 +351,12 @@ if (!tg?.initData) {
   feedback("Ten panel otworzysz z czatu z Ottem.");
 } else {
   tg.ready(); tg.expand();
+  if (native) {
+    document.documentElement.classList.add("native");
+    // Akcję ustalamy w chwili kliknięcia: zdarzenie „close” okna przychodzi z opóźnieniem.
+    tg.MainButton.onClick(() => { if (!busy) mainButton()?.run(); });
+    tg.BackButton.onClick(() => { openDialog()?.close(); syncButtons(); });
+  }
   theme(); tg.onEvent("themeChanged", theme);
   request({ action: "view" });
 }

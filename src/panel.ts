@@ -3,6 +3,7 @@ import { sameSecret } from "./crypto";
 import { DAY, isValidTz, partsIn, reminderAt } from "./time";
 import { TONES, USES } from "./texts";
 import type { Tone } from "./prompts";
+import type { Holiday } from "./holidays";
 
 export class PanelError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
@@ -16,19 +17,22 @@ export type PanelAction =
   | { action: "reminderMove"; id: number; local: string }
   | { action: "reminderDelete"; id: number }
   | { action: "reminderShow"; id: number }
-  /** `use` pomijają panele otwarte przed jego dodaniem: wtedy zostaje bez zmian. */
-  | { action: "settings"; name: string; tone: Tone | ""; tz: string; use?: string };
+  /** `use` i `digest` pomijają panele otwarte przed ich dodaniem: wtedy zostają bez zmian. `digest`: godzina planu dnia albo null. */
+  | { action: "settings"; name: string; tone: Tone | ""; tz: string; use?: string; digest?: number | null };
 
 export interface PanelSnapshot {
   tz: string;
   name: string;
   tone: Tone | "";
   use: string;
+  digest: number | null;
   status: string;
   listId: number | null;
   listAvailable: boolean;
   tasks: { text: string; index: number; hash: string }[];
   reminders: { id: number; at: number; when: string }[];
+  /** Polskie święta od dziś na 400 dni, do zaznaczenia w kalendarzu. */
+  holidays: Holiday[];
 }
 export type PanelResult = { data: PanelSnapshot } | { error: string; status: number };
 
@@ -80,8 +84,12 @@ export function panelAction(value: unknown): PanelAction {
     case "reminderDelete":
     case "reminderShow": if (id(b.id)) return { action: b.action, id: b.id }; break;
     case "settings":
-      if (typeof b.name === "string" && b.name.length <= 30 && (b.name.trim() === "" || /^[\p{L}][\p{L}\p{M} .'-]*$/u.test(b.name.trim())) && typeof b.tz === "string" && b.tz.length <= 100 && isValidTz(b.tz) && (b.tone === "" || TONES.some(([tone]) => tone === b.tone)) && (b.use === undefined || b.use === "" || (typeof b.use === "string" && Object.hasOwn(USES, b.use)))) {
-        return { action: b.action, name: b.name.trim(), tz: b.tz, tone: b.tone as Tone | "", ...(b.use === undefined ? {} : { use: b.use as string }) };
+      if (typeof b.name === "string" && b.name.length <= 30 && (b.name.trim() === "" || /^[\p{L}][\p{L}\p{M} .'-]*$/u.test(b.name.trim())) && typeof b.tz === "string" && b.tz.length <= 100 && isValidTz(b.tz) && (b.tone === "" || TONES.some(([tone]) => tone === b.tone)) && (b.use === undefined || b.use === "" || (typeof b.use === "string" && Object.hasOwn(USES, b.use))) && (b.digest === undefined || b.digest === null || (Number.isInteger(b.digest) && (b.digest as number) >= 0 && (b.digest as number) <= 23))) {
+        return {
+          action: b.action, name: b.name.trim(), tz: b.tz, tone: b.tone as Tone | "",
+          ...(b.use === undefined ? {} : { use: b.use as string }),
+          ...(b.digest === undefined ? {} : { digest: b.digest as number | null }),
+        };
       }
       break;
   }
@@ -124,7 +132,8 @@ export async function panelApi(request: Request, env: Env): Promise<Response> {
     let value;
     try { value = JSON.parse(raw); } catch { throw new PanelError(400, "Niepoprawne polecenie."); }
     const action = panelAction(value);
-    const result = await env.CHAT.get(env.CHAT.idFromName(String(chatId))).panel(chatId, action);
+    // Adres panelu do przycisku w planie dnia, który wysyła alarm (bez żądania z Telegrama).
+    const result = await env.CHAT.get(env.CHAT.idFromName(String(chatId))).panel(chatId, action, new URL(request.url).origin);
     if ("error" in result) return respond({ error: result.error }, result.status);
     return respond(result);
   } catch (error) {

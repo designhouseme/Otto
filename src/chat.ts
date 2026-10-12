@@ -2,7 +2,7 @@
  * Jeden Otto = jeden obiekt na jedną rozmowę prywatną.
  *
  * Trzymamy tylko: numer czatu, strefę, licznik darmowych wiadomości (10 na start, raz na konto),
- * zaszyfrowany klucz, numer przypiętej listy, przypomnienia jako (numer wiadomości, godzina)
+ * zaszyfrowany klucz, numer przypiętej listy, przypomnienia jako (numer wiadomości, godzina), godzinę planu dnia
  * i to, co ktoś sam podał przy personalizacji (jak się zwracać, jak pisać, do czego używa Otta).
  * Treść wiadomości zostaje w Telegramie: przypominając, Otto odpowiada na oryginał.
  * Głosówki i zdjęcia pobieramy z Telegrama tylko na czas jednego zapytania do modelu.
@@ -17,6 +17,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { AiError, KEY_PATTERN, checkKey, completeJson, defaultModel, detectProvider, type Media, type Provider, transcribe } from "./ai";
 import { cleanTitle, googleCalendarUrl, icsLink } from "./calendar";
+import { holidaysBetween } from "./holidays";
 import { peppered, seal, unseal } from "./crypto";
 import { type Attachment, MAX_AUDIO_SECONDS, MAX_MEDIA_BYTES, attachmentOf, toBase64 } from "./media";
 import { type Profile, asksForList, botSystem, toBotPlan, toneOf } from "./prompts";
@@ -25,7 +26,7 @@ import { appendTasks, cleanTask, findTask, parseList, renderList, shortHash, spl
 import { PanelError, panelReminderAt, type PanelAction, type PanelResult, type PanelSnapshot } from "./panel";
 import { type Button, type CallbackQuery, type Keyboard, type Message, TgError, type Update, telegram } from "./telegram";
 import { T, TONES, USES, ZONES, zoneName } from "./texts";
-import { DAY, eveningLabel, formatShort, formatWhen, isValidTz, parseWhen, presetAt, reminderAt } from "./time";
+import { DAY, HOUR, dateKey, eveningLabel, formatClock, formatDay, formatShort, formatWhen, isValidTz, nextDailyAt, parseWhen, presetAt, reminderAt } from "./time";
 
 interface State {
   chatId: number;
@@ -43,6 +44,13 @@ interface State {
   listId?: number;
   /** Tylko identyfikatory i czas ważności, bez treści wiadomości. */
   pendingReminder?: { target: number; promptId: number; expires: number };
+}
+
+/** Plan dnia: godzina, najbliższe wysłanie i adres panelu do przycisku. Osobny klucz, bo czyta go też alarm. */
+interface Digest {
+  hour: number;
+  next: number;
+  origin?: string;
 }
 
 const MOOD_ORDER = ["neutral", "happy", "look", "wink", "wow", "think"] as const;
@@ -74,8 +82,9 @@ export class Chat extends DurableObject<Env> {
   }
 
   /** RPC panelu przechodzi przez tę samą kolejkę co wiadomości i alarmy. */
-  panel(chatId: number, action: PanelAction): Promise<PanelResult> {
+  panel(chatId: number, action: PanelAction, origin = ""): Promise<PanelResult> {
     const now = Date.now();
+    if (origin) this.origin = origin;
     this.panelHits = this.panelHits.filter((at) => at > now - 60_000);
     if (this.panelHits.length >= 30) return Promise.resolve({ error: "Chwilka, za dużo zmian naraz. Spróbuj za minutę.", status: 429 });
     this.panelHits.push(now);
@@ -126,6 +135,8 @@ export class Chat extends DurableObject<Env> {
           s.tz = action.tz;
           s.profile = { ...s.profile, name: action.name || undefined, tone: action.tone || undefined, ...(action.use === undefined ? {} : { use: action.use || undefined }) };
           if (s.awaiting === "name") s.awaiting = undefined;
+          // Także bez zmiany godziny: nowa strefa przesuwa najbliższy plan dnia.
+          await this.setDigest(s, action.digest === undefined ? ((await this.digest())?.hour ?? null) : action.digest);
         }
         await this.ctx.storage.put("state", s);
         return { data: await this.panelView(s) };
@@ -139,8 +150,10 @@ export class Chat extends DurableObject<Env> {
   private async panelView(s: State): Promise<PanelSnapshot> {
     // Odświeżenie panelu nigdy nie odpina wiadomości użytkownika.
     const list = await this.readList(s, false);
+    const now = Date.now();
     return {
-      tz: s.tz, name: s.profile?.name ?? "", tone: toneOf(s.profile) ?? "", use: s.profile?.use ?? "", status: this.modeLine(s),
+      tz: s.tz, name: s.profile?.name ?? "", tone: toneOf(s.profile) ?? "", use: s.profile?.use ?? "", digest: (await this.digest())?.hour ?? null, status: this.modeLine(s),
+      holidays: holidaysBetween(dateKey(now, s.tz), dateKey(now + 400 * DAY, s.tz)),
       listId: s.listId ?? null, listAvailable: !s.listId || list.ok,
       tasks: list.tasks.map((text, index) => ({ text, index, hash: shortHash(text) })),
       reminders: this.sql.exec<{ id: number; at: number }>("SELECT id, at FROM reminders ORDER BY at").toArray().map((r) => ({ ...r, when: formatShort(r.at, s.tz) })),
@@ -720,16 +733,58 @@ export class Chat extends DurableObject<Env> {
     await this.rearm();
   }
 
-  /** Obiekt ma jeden alarm: zawsze ustawiamy go na najbliższe przypomnienie. */
+  /** Obiekt ma jeden alarm: zawsze ustawiamy go na najbliższe przypomnienie albo plan dnia. */
   private async rearm() {
-    const next = this.sql.exec<{ at: number | null }>("SELECT MIN(at) AS at FROM reminders").one().at;
-    if (next) await this.ctx.storage.setAlarm(next);
+    const reminder = this.sql.exec<{ at: number | null }>("SELECT MIN(at) AS at FROM reminders").one().at;
+    const digest = (await this.digest())?.next;
+    const next = Math.min(reminder ?? Infinity, digest ?? Infinity);
+    if (Number.isFinite(next)) await this.ctx.storage.setAlarm(next);
     else await this.ctx.storage.deleteAlarm();
+  }
+
+  private digest() {
+    return this.ctx.storage.get<Digest>("digest");
+  }
+
+  /** Włącza (godzina) albo wyłącza (null) plan dnia i liczy najbliższe wysłanie w strefie konta. */
+  private async setDigest(s: State, hour: number | null) {
+    const old = await this.digest();
+    if (hour === null) {
+      if (!old) return;
+      await this.ctx.storage.delete("digest");
+    } else {
+      await this.ctx.storage.put("digest", { hour, next: nextDailyAt(Date.now(), s.tz, hour), origin: this.origin || old?.origin } satisfies Digest);
+    }
+    await this.rearm();
+  }
+
+  /** Plan dnia: godziny dzisiejszych przypomnień, początek listy i święto. Pusty dzień bez święta: nic nie wysyłamy. */
+  private async sendDigest(s: State, digest: Digest) {
+    const now = Date.now();
+    const today = dateKey(now, s.tz);
+    const times = this.sql
+      .exec<{ at: number }>("SELECT at FROM reminders ORDER BY at")
+      .toArray()
+      .filter((r) => dateKey(r.at, s.tz) === today)
+      .map((r) => formatClock(r.at, s.tz));
+    // Lista, która nie jest najnowszą pinezką, jest nieczytelna, a nie pusta: wtedy tylko odsyłamy do /lista.
+    const list = await this.readList(s, false);
+    const tasks = s.listId && !list.ok ? null : list.tasks;
+    const holiday = holidaysBetween(today, today)[0]?.name;
+    if (!times.length && !tasks?.length && !holiday) return;
+    const button = digest.origin ? { reply_markup: { inline_keyboard: [[{ text: T.btnPanel, web_app: { url: `${digest.origin}/panel/` } }]] } } : {};
+    await this.say(s, T.digest(s.profile?.name, formatDay(now, s.tz), holiday, times, tasks), button);
   }
 
   private async fire() {
     const s = await this.load();
     if (!s.chatId) return;
+    // Plan dnia przed przypomnieniami z tej samej minuty, żeby je wymienił. Spóźniony o ponad 3 h (np. po awarii) przepada.
+    const digest = await this.digest();
+    if (digest && digest.next <= Date.now() + 1000) {
+      if (Date.now() - digest.next < 3 * HOUR) await this.sendDigest(s, digest).catch((error) => console.error("digest failed", error instanceof TgError ? error.code : "unknown"));
+      await this.ctx.storage.put("digest", { ...digest, next: nextDailyAt(Date.now(), s.tz, digest.hour) });
+    }
     const due = this.sql
       .exec<{ id: number; msg_id: number }>("SELECT id, msg_id FROM reminders WHERE at <= ? ORDER BY at LIMIT 20", Date.now() + 1000)
       .toArray();
@@ -857,6 +912,7 @@ export class Chat extends DurableObject<Env> {
         const tz = [a, b].filter(Boolean).join(":");
         if (isValidTz(tz)) {
           s.tz = tz;
+          await this.setDigest(s, (await this.digest())?.hour ?? null);
           if (message) await this.edit(s, message.message_id, T.tzSet(tz));
         }
         break;
@@ -979,10 +1035,11 @@ export class Chat extends DurableObject<Env> {
 
   // ---- strefa i dane ----
 
-  private tzCommand(s: State, arg: string) {
+  private async tzCommand(s: State, arg: string) {
     if (arg) {
       if (!isValidTz(arg)) return this.say(s, T.tzBad);
       s.tz = arg;
+      await this.setDigest(s, (await this.digest())?.hour ?? null);
       return this.say(s, T.tzSet(arg));
     }
     const zones = ["Europe/Warsaw", "Europe/London", "Europe/Berlin", "Europe/Dublin", "America/New_York", "America/Chicago"];
