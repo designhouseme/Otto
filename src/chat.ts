@@ -7,7 +7,7 @@
  * Treść wiadomości zostaje w Telegramie: przypominając, Otto odpowiada na oryginał.
  * Głosówki i zdjęcia pobieramy z Telegrama tylko na czas jednego zapytania do modelu.
  *
- * Otto odpowiada zwykłymi wiadomościami. Jedyna odpowiedź „na wiadomość” to samo przypomnienie,
+ * Otto odpowiada zwykłymi wiadomościami. Odpowiedź „na wiadomość” to przypomnienie i jego podgląd z panelu,
  * bo tylko tak widać, czego dotyczy, skoro treści nie zapisujemy.
  *
  * Aktualizacje przetwarzamy po kolei (kolejka w pamięci), bo między wywołaniami
@@ -115,9 +115,16 @@ export class Chat extends DurableObject<Env> {
         } else if (action.action === "reminderDelete") {
           this.sql.exec("DELETE FROM reminders WHERE id = ?", action.id);
           await this.rearm();
+        } else if (action.action === "reminderShow") {
+          // Panel nie zna treści: Otto odpowiada w czacie na oryginał, więc treść widać w cytacie.
+          const row = this.sql.exec<{ msg_id: number; at: number }>("SELECT msg_id, at FROM reminders WHERE id = ?", action.id).toArray()[0];
+          if (!row) throw new PanelError(409, "To przypomnienie już zniknęło. Odśwież panel.");
+          const when = formatWhen(row.at, now, s.tz);
+          const shown = await this.say(s, T.reminderShown(when), { reply_parameters: { message_id: row.msg_id, allow_sending_without_reply: true } });
+          if (!shown.reply_to_message) await this.edit(s, shown.message_id, T.reminderShownOrphan(when)).catch(() => {});
         } else if (action.action === "settings") {
           s.tz = action.tz;
-          s.profile = { ...s.profile, name: action.name || undefined, tone: action.tone || undefined };
+          s.profile = { ...s.profile, name: action.name || undefined, tone: action.tone || undefined, ...(action.use === undefined ? {} : { use: action.use || undefined }) };
           if (s.awaiting === "name") s.awaiting = undefined;
         }
         await this.ctx.storage.put("state", s);
@@ -133,7 +140,7 @@ export class Chat extends DurableObject<Env> {
     // Odświeżenie panelu nigdy nie odpina wiadomości użytkownika.
     const list = await this.readList(s, false);
     return {
-      tz: s.tz, name: s.profile?.name ?? "", tone: toneOf(s.profile) ?? "", status: this.modeLine(s),
+      tz: s.tz, name: s.profile?.name ?? "", tone: toneOf(s.profile) ?? "", use: s.profile?.use ?? "", status: this.modeLine(s),
       listId: s.listId ?? null, listAvailable: !s.listId || list.ok,
       tasks: list.tasks.map((text, index) => ({ text, index, hash: shortHash(text) })),
       reminders: this.sql.exec<{ id: number; at: number }>("SELECT id, at FROM reminders ORDER BY at").toArray().map((r) => ({ ...r, when: formatShort(r.at, s.tz) })),
@@ -729,7 +736,7 @@ export class Chat extends DurableObject<Env> {
     for (const r of due) {
       this.sql.exec("DELETE FROM reminders WHERE id = ?", r.id);
       try {
-        // Jedyna odpowiedź „na wiadomość”: tylko tak widać, o czym przypominamy.
+        // Odpowiedź „na wiadomość”: tylko tak widać, o czym przypominamy.
         const message = await this.tg.send(s.chatId, T.reminder, {
           reply_parameters: { message_id: r.msg_id, allow_sending_without_reply: true },
           reply_markup: { inline_keyboard: this.reminderButtons("z", r.msg_id, s) },

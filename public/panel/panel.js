@@ -4,6 +4,10 @@ let state;
 let busy = false;
 let movingId;
 let settingsDirty = false;
+/** Kalendarz: oglądany miesiąc („RRRR-MM”) i wybrany dzień („RRRR-MM-DD”) w strefie konta. */
+let month;
+let selectedDay = null;
+const DAY_MS = 86_400_000;
 
 function feedback(text, kind = "") {
   $("feedback").textContent = text;
@@ -24,7 +28,7 @@ function theme() {
 function setBusy(value) {
   busy = value;
   $("workspace").setAttribute("aria-busy", String(value));
-  for (const control of document.querySelectorAll("button,input,select")) control.disabled = value;
+  for (const control of document.querySelectorAll("button,input,select")) control.disabled = value || control.dataset.off === "1";
   if (!value && state?.listAvailable === false) {
     $("task-text").disabled = true;
     $("task-form").querySelector("button").disabled = true;
@@ -70,6 +74,140 @@ function localValue(at, tz) {
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
 }
 
+const pad = (value) => String(value).padStart(2, "0");
+const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+const utcDay = (key) => { const [y, m, d] = key.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+const addDays = (key, days) => new Date(utcDay(key) + days * DAY_MS).toISOString().slice(0, 10);
+// Daty kalendarza to dni w strefie konta, więc formatujemy je jako UTC: bez przesunięć strefy przeglądarki.
+const dayFormat = (options) => new Intl.DateTimeFormat("pl-PL", { ...options, timeZone: "UTC" });
+const today = () => localValue(Date.now(), state.tz).slice(0, 10);
+const reminderWord = (n) => n === 1 ? "przypomnienie" : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "przypomnienia" : "przypomnień";
+
+/** „Dziś”, „Jutro”, „Pojutrze” albo „Piątek, 16 października”. W nagłówku dnia także data przy dniach względnych. */
+function dayLabel(key, heading = false) {
+  const diff = Math.round((utcDay(key) - utcDay(today())) / DAY_MS);
+  const date = dayFormat({ day: "numeric", month: "long", ...(key.slice(0, 4) !== today().slice(0, 4) ? { year: "numeric" } : {}) }).format(utcDay(key));
+  const near = ["Dziś", "Jutro", "Pojutrze"][diff];
+  if (near) return heading ? `${near}, ${date}` : near;
+  return capitalize(`${dayFormat({ weekday: "long" }).format(utcDay(key))}, ${date}`);
+}
+
+/** Blokada, która przetrwa setBusy(false): np. dzień z przeszłości albo koniec zakresu. */
+function lock(control, off) {
+  control.dataset.off = off ? "1" : "";
+  control.disabled = busy || off;
+}
+
+/** Szybkie terminy jak przyciski w czacie, liczone w strefie konta w chwili kliknięcia. */
+function presetValue(preset) {
+  const now = localValue(Date.now(), state.tz);
+  const day = now.slice(0, 10);
+  const time = now.slice(11);
+  if (preset === "h1") return localValue(Date.now() + 3_600_000, state.tz);
+  if (preset === "e18") return `${time < "17:59" ? day : addDays(day, 1)}T18:00`;
+  if (preset === "j9") return `${addDays(day, 1)}T09:00`;
+  return `${addDays(day, 7)}T${time}`;
+}
+
+function renderCalendar() {
+  const now = Date.now();
+  const first = today();
+  const limit = localValue(now + 400 * DAY_MS, state.tz).slice(0, 10);
+  if (!month || month < first.slice(0, 7)) month = first.slice(0, 7);
+  if (month > limit.slice(0, 7)) month = limit.slice(0, 7);
+  const counts = new Map();
+  for (const reminder of state.reminders) {
+    const key = localValue(reminder.at, state.tz).slice(0, 10);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const [y, m] = month.split("-").map(Number);
+  $("month-label").textContent = capitalize(dayFormat({ month: "long", year: "numeric" }).format(Date.UTC(y, m - 1, 1)));
+  lock($("month-prev"), month <= first.slice(0, 7));
+  lock($("month-next"), month >= limit.slice(0, 7));
+  const blanks = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
+  const cells = Array.from({ length: blanks }, () => Object.assign(document.createElement("span"), { className: "blank" }));
+  for (let d = 1; d <= new Date(Date.UTC(y, m, 0)).getUTCDate(); d++) {
+    const key = `${month}-${pad(d)}`;
+    const count = counts.get(key) ?? 0;
+    const day = document.createElement("button");
+    day.type = "button";
+    day.className = `day${key === first ? " today" : ""}${count ? " has" : ""}`;
+    day.textContent = d;
+    day.setAttribute("aria-pressed", String(key === selectedDay));
+    day.setAttribute("aria-label", `${dayLabel(key, true)}: ${count ? `${count} ${reminderWord(count)}` : "bez przypomnień"}`);
+    if (key === first) day.setAttribute("aria-current", "date");
+    lock(day, key < first || key > limit);
+    day.addEventListener("click", () => pickDay(key));
+    cells.push(day);
+  }
+  $("month-grid").replaceChildren(...cells);
+}
+
+/** Dzień z kalendarza filtruje listę i podpowiada termin nowego przypomnienia. Drugie kliknięcie wraca do wszystkich. */
+function pickDay(key) {
+  selectedDay = selectedDay === key ? null : key;
+  tg.HapticFeedback?.selectionChanged();
+  if (selectedDay) {
+    const now = localValue(Date.now(), state.tz);
+    const hour = Number(now.slice(11, 13)) + 1;
+    if (key > now.slice(0, 10)) $("reminder-local").value = `${key}T09:00`;
+    else if (hour <= 23) $("reminder-local").value = `${key}T${pad(hour)}:00`;
+  }
+  renderCalendar();
+  renderAgenda();
+}
+
+function renderAgenda() {
+  if (selectedDay && selectedDay < today()) selectedDay = null;
+  const items = state.reminders.map((reminder) => ({ ...reminder, local: localValue(reminder.at, state.tz) })).filter((reminder) => !selectedDay || reminder.local.startsWith(selectedDay));
+  $("agenda-title").textContent = selectedDay ? dayLabel(selectedDay, true) : "Wszystkie terminy";
+  $("agenda-all").hidden = !selectedDay;
+  $("reminders-empty").hidden = items.length > 0;
+  $("reminders-empty-title").textContent = selectedDay ? "Wolny dzień." : "Żaden termin nie goni.";
+  $("reminders-empty-text").textContent = selectedDay ? "Tego dnia nic nie mam. Ustaw przypomnienie poniżej." : "Ustaw przypomnienie, a odezwę się o czasie.";
+  $("reminder-list").replaceChildren(...items.map((reminder) => {
+    const day = reminder.local.slice(0, 10);
+    const time = `${Number(reminder.local.slice(11, 13))}:${reminder.local.slice(14, 16)}`;
+    const when = `${dayLabel(day).toLowerCase()}, ${time}`;
+    const li = document.createElement("li"); li.className = "item reminder-item";
+    const info = document.createElement("div"); info.className = "info";
+    const text = document.createElement("p"); text.className = "time"; text.textContent = time;
+    if (!selectedDay) {
+      const label = document.createElement("span"); label.textContent = dayLabel(day);
+      info.append(label);
+    }
+    info.append(text);
+    const actions = document.createElement("div"); actions.className = "actions";
+    actions.append(
+      button("Pokaż", "secondary", () => request({ action: "reminderShow", id: reminder.id }, "Wysłałem do czatu. Treść zobaczysz w cytacie."), `Pokaż w czacie przypomnienie: ${when}`),
+      button("Zmień", "secondary", () => {
+        movingId = reminder.id;
+        $("move-feedback").textContent = "";
+        $("move-local").value = reminder.local;
+        $("move-dialog").showModal();
+      }, `Zmień termin przypomnienia: ${when}`),
+      button("Usuń", "delete-button", async () => {
+        const approved = await new Promise((resolve) => {
+          if (tg.showConfirm && tg.isVersionAtLeast?.("6.2")) tg.showConfirm("Usunąć to przypomnienie?", resolve);
+          else resolve(window.confirm("Usunąć to przypomnienie?"));
+        });
+        if (approved) await request({ action: "reminderDelete", id: reminder.id }, "Przypomnienie usunięte.");
+      }, `Usuń przypomnienie: ${when}`),
+    );
+    li.append(info, actions); return li;
+  }));
+}
+
+/** Strefa urządzenia: podpowiedź w podróży. UTC z WebView zwykle nie jest prawdziwą strefą, więc go pomijamy. */
+function renderZoneHint() {
+  let zone = "";
+  try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { /* brak Intl */ }
+  const show = !!zone && zone !== "UTC" && !zone.startsWith("Etc/") && zone !== $("profile-tz").value;
+  $("tz-device").hidden = !show;
+  $("tz-device").dataset.zone = zone;
+  if (show) $("tz-device").firstElementChild.textContent = `Telefon pokazuje strefę ${zone}.`;
+}
+
 function render() {
   $("workspace").hidden = false;
   $("welcome").hidden = true;
@@ -78,7 +216,6 @@ function render() {
   $("reminder-count").textContent = state.reminders.length;
   $("tasks-empty").hidden = state.tasks.length > 0 || !state.listAvailable;
   $("list-unavailable").hidden = state.listAvailable;
-  $("reminders-empty").hidden = state.reminders.length > 0;
   document.querySelectorAll(".timezone-note").forEach((element) => { element.textContent = `Godziny w strefie ${state.tz}.`; });
   $("task-list").replaceChildren(...state.tasks.map((task) => {
     const li = document.createElement("li");
@@ -87,36 +224,16 @@ function render() {
     li.append(button("✓", "done-button", () => request({ action: "taskDone", listId: state.listId, index: task.index, hash: task.hash }, "Odhaczone. Jedna rzecz mniej!"), `Odhacz: ${task.text}`), text);
     return li;
   }));
-  $("reminder-list").replaceChildren(...state.reminders.map((reminder, index) => {
-    const li = document.createElement("li"); li.className = "item reminder-item";
-    const info = document.createElement("div"); info.className = "info";
-    const label = document.createElement("span"); label.textContent = `Przypomnienie ${index + 1}`;
-    const text = document.createElement("p");
-    text.textContent = new Intl.DateTimeFormat("pl-PL", { timeZone: state.tz, dateStyle: "medium", timeStyle: "short" }).format(reminder.at);
-    info.append(label, text);
-    const actions = document.createElement("div"); actions.className = "actions";
-    actions.append(
-      button("Zmień", "secondary", () => {
-        movingId = reminder.id;
-        $("move-feedback").textContent = "";
-        $("move-local").value = localValue(reminder.at, state.tz);
-        $("move-dialog").showModal();
-      }, `Zmień termin przypomnienia ${index + 1}`),
-      button("Usuń", "delete-button", async () => {
-        const approved = await new Promise((resolve) => {
-          if (tg.showConfirm && tg.isVersionAtLeast?.("6.2")) tg.showConfirm("Usunąć to przypomnienie?", resolve);
-          else resolve(window.confirm("Usunąć to przypomnienie?"));
-        });
-        if (approved) await request({ action: "reminderDelete", id: reminder.id }, "Przypomnienie usunięte.");
-      }, `Usuń przypomnienie ${index + 1}`),
-    );
-    li.append(info, actions); return li;
-  }));
+  renderCalendar();
+  renderAgenda();
+  document.querySelector('[data-preset="e18"]').textContent = presetValue("e18").startsWith(today()) ? "Dziś 18:00" : "Jutro 18:00";
   if (!settingsDirty) {
     $("profile-name").value = state.name;
     $("profile-tone").value = state.tone;
+    $("profile-use").value = state.use ?? "";
     $("profile-tz").value = state.tz;
   }
+  renderZoneHint();
   $("account-status").textContent = state.status;
   if (!$("reminder-local").value) $("reminder-local").value = localValue(Date.now() + 3600_000, state.tz);
 }
@@ -148,10 +265,22 @@ $("reminder-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (await request({ action: "reminderCreate", text: $("reminder-text").value, local: $("reminder-local").value }, "Ustawione. Odezwę się o czasie.")) $("reminder-text").value = "";
 });
-$("settings-form").addEventListener("input", () => { settingsDirty = true; });
+$("month-prev").addEventListener("click", () => { month = addDays(`${month}-01`, -1).slice(0, 7); renderCalendar(); });
+$("month-next").addEventListener("click", () => { month = addDays(`${month}-28`, 7).slice(0, 7); renderCalendar(); });
+$("agenda-all").addEventListener("click", () => pickDay(selectedDay));
+document.querySelectorAll("[data-preset]").forEach((chip) => chip.addEventListener("click", () => {
+  $("reminder-local").value = presetValue(chip.dataset.preset);
+  tg.HapticFeedback?.selectionChanged();
+}));
+$("tz-device-use").addEventListener("click", () => {
+  $("profile-tz").value = $("tz-device").dataset.zone;
+  settingsDirty = true;
+  renderZoneHint();
+});
+$("settings-form").addEventListener("input", () => { settingsDirty = true; renderZoneHint(); });
 $("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (await request({ action: "settings", name: $("profile-name").value, tone: $("profile-tone").value, tz: $("profile-tz").value }, "Ustawienia zapisane.")) {
+  if (await request({ action: "settings", name: $("profile-name").value, tone: $("profile-tone").value, use: $("profile-use").value, tz: $("profile-tz").value }, "Ustawienia zapisane.")) {
     settingsDirty = false;
     render();
   }

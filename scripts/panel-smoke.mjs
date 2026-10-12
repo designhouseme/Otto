@@ -55,10 +55,16 @@ assert.equal(JSON.stringify(state).includes("Przegląd auta"), false);
 state = await panel({ action: "reminderMove", id: reminder.id, local: local.slice(0, 11) + "10:30" });
 const moved = state.reminders[0].at;
 assert.equal(moved - reminder.at, 90 * 60000);
+state = await panel({ action: "reminderShow", id: reminder.id });
+assert.equal(state.reminders.length, 1);
+assert.equal(state.reminders[0].at, moved);
+await panel({ action: "reminderShow", id: 999_999 }, 409);
 console.log("✓ tworzenie i zmiana terminu bez przechowywania treści w odpowiedzi panelu");
+console.log("✓ podgląd treści w czacie nie zmienia terminu");
 
-state = await panel({ action: "settings", name: "Ola", tone: "technical", tz: "America/New_York" });
+state = await panel({ action: "settings", name: "Ola", tone: "technical", use: "praca", tz: "America/New_York" });
 assert.equal(state.name, "Ola");
+assert.equal(state.use, "praca");
 assert.equal(state.tone, "technical");
 assert.equal(state.tz, "America/New_York");
 assert.equal(state.reminders[0].at, moved);

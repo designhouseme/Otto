@@ -53,6 +53,15 @@ describe("polecenia panelu", () => {
       expect(() => panelAction(b)).toThrow();
     }
   });
+  it("przyjmuje podgląd przypomnienia i cel używania tylko z dozwolonych wartości", () => {
+    expect(panelAction({ action: "reminderShow", id: 7 })).toEqual({ action: "reminderShow", id: 7 });
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", use: "praca" })).toMatchObject({ use: "praca" });
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", use: "" })).toMatchObject({ use: "" });
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw" })).not.toHaveProperty("use");
+    for (const b of [{ action: "reminderShow", id: "7" }, { action: "reminderShow", id: 0 }, ...["toString", "__proto__", "firma", 5, null].map((use) => ({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", use }))]) {
+      expect(() => panelAction(b)).toThrow();
+    }
+  });
   it("liczy czas w strefie konta, odrzuca nieistniejące daty i godziny", () => {
     expect(panelReminderAt("2026-10-09T09:00", NOW, "Europe/Warsaw")).toBe(Date.UTC(2026, 9, 9, 7));
     expect(panelReminderAt("2026-10-09T09:00", NOW, "America/New_York")).toBe(Date.UTC(2026, 9, 9, 13));

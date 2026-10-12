@@ -12,7 +12,7 @@ import { telegram } from "./telegram";
 
 const COMMANDS = [
   { command: "lista", description: "Twoja lista zadań" },
-  { command: "panel", description: "Panel: lista, przypomnienia i ustawienia" },
+  { command: "panel", description: "Panel: lista, kalendarz i ustawienia" },
   { command: "dodaj", description: "Dopisz do listy, np. /dodaj mleko, chleb" },
   { command: "przypomnij", description: "Przypomnienie, np. /przypomnij jutro o 9" },
   { command: "przypomnienia", description: "Zaplanowane przypomnienia" },

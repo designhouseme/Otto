@@ -11,7 +11,12 @@ vi.mock("../src/telegram", async (original) => {
   const actual = await original<typeof import("../src/telegram")>();
   const call = async (method: string, params: Record<string, unknown>) => {
     fake.calls.push({ method, params });
-    if (method === "sendMessage") return { message_id: fake.nextId++, date: 0, chat: { id: params.chat_id, type: "private" }, text: params.text };
+    if (method === "sendMessage") {
+      // Wiadomość 404 „została usunięta”: Telegram wysyła wtedy odpowiedź bez cytatu.
+      const reply = params.reply_parameters as { message_id: number } | undefined;
+      const quoted = reply && reply.message_id !== 404 ? { reply_to_message: { message_id: reply.message_id, date: 0, chat: { id: params.chat_id, type: "private" } } } : {};
+      return { message_id: fake.nextId++, date: 0, chat: { id: params.chat_id, type: "private" }, text: params.text, ...quoted };
+    }
     if (method === "getChat") return {};
     return true;
   };
@@ -33,6 +38,7 @@ function fixture() {
       if (query.startsWith("INSERT INTO reminders")) reminders.push({ id: reminders.length + 1, msg_id: args[0], at: args[1] });
       if (query.startsWith("SELECT MIN")) rows = [{ at: reminders.length ? Math.min(...reminders.map((r) => r.at)) : null }];
       if (query.startsWith("SELECT id")) rows = reminders;
+      if (query.startsWith("SELECT msg_id")) rows = reminders.filter((r) => r.id === args[0]);
       return { toArray: () => rows, one: () => rows[0] };
     } },
   };
@@ -120,6 +126,24 @@ describe("powiązanie panelu z rozmową", () => {
     const result = await f.chat.panel(CHAT, { action: "view" });
     expect(result).toMatchObject({ data: { listId: 333, listAvailable: false, tasks: [] } });
     expect(fake.calls.every((c) => c.method === "getChat")).toBe(true);
+  });
+  it("pokazuje treść przypomnienia odpowiedzią na oryginał, bez zmiany terminu", async () => {
+    const f = fixture();
+    f.reminders.push({ id: 1, msg_id: 55, at: NOW + 3_600_000 }, { id: 2, msg_id: 404, at: NOW + 7_200_000 });
+    expect(await f.chat.panel(CHAT, { action: "reminderShow", id: 1 })).toHaveProperty("data");
+    expect(fake.calls.find((c) => c.method === "sendMessage")?.params).toMatchObject({ text: "⏰ O tym przypomnę Ci dziś o 13:00.", reply_parameters: { message_id: 55 } });
+    expect(f.reminders).toHaveLength(2);
+    expect(fake.calls.some((c) => c.method === "editMessageText")).toBe(false);
+    await f.chat.panel(CHAT, { action: "reminderShow", id: 2 });
+    expect(fake.calls.find((c) => c.method === "editMessageText")?.params.text).toContain("została usunięta");
+    expect(await f.chat.panel(CHAT, { action: "reminderShow", id: 9 })).toMatchObject({ status: 409 });
+  });
+  it("zapisuje, zostawia i czyści cel używania Otta", async () => {
+    const f = fixture();
+    expect(await f.chat.panel(CHAT, { action: "settings", name: "", tz: "Europe/Warsaw", tone: "", use: "praca" })).toMatchObject({ data: { use: "praca" } });
+    expect(await f.chat.panel(CHAT, { action: "settings", name: "Ola", tz: "Europe/Warsaw", tone: "" })).toMatchObject({ data: { use: "praca", name: "Ola" } });
+    expect(await f.chat.panel(CHAT, { action: "settings", name: "Ola", tz: "Europe/Warsaw", tone: "", use: "" })).toMatchObject({ data: { use: "" } });
+    expect(f.state().profile).toEqual({ name: "Ola" });
   });
   it("ogranicza serię żądań panelu i ponownie pozwala po upływie okna", async () => {
     const f = fixture();

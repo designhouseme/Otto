@@ -2,6 +2,16 @@
 
 Historia zmian w projekcie. Daty odpowiadają zmianom w repozytorium; sekcja „Niewydane” czeka na wdrożenie bota.
 
+## Niewydane
+
+### Nowości
+- Kalendarz w panelu: miesiąc z zaznaczonymi przypomnieniami. Kliknięty dzień pokazuje swoje terminy i podpowiada datę nowego przypomnienia.
+- „Pokaż” przy przypomnieniu w panelu: Otto odpowiada w czacie na oryginalną wiadomość, więc od razu widać, czego dotyczy.
+
+### Ulepszenia
+- Szybkie terminy w panelu: „Za godzinę”, „Dziś 18:00”, „Jutro 9:00” i „Za tydzień”.
+- W ustawieniach panelu wybierzesz, do czego głównie używasz Otta. Panel podpowie też strefę telefonu, gdy różni się od zapisanej.
+
 ## 2026-10-11
 
 ### Nowości

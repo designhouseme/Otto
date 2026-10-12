@@ -1,7 +1,7 @@
 /** Mini App: uwierzytelnienie podpisem Telegrama, bez cookies i kluczy w przeglądarce. */
 import { sameSecret } from "./crypto";
 import { DAY, isValidTz, partsIn, reminderAt } from "./time";
-import { TONES } from "./texts";
+import { TONES, USES } from "./texts";
 import type { Tone } from "./prompts";
 
 export class PanelError extends Error {
@@ -15,12 +15,15 @@ export type PanelAction =
   | { action: "reminderCreate"; text: string; local: string }
   | { action: "reminderMove"; id: number; local: string }
   | { action: "reminderDelete"; id: number }
-  | { action: "settings"; name: string; tone: Tone | ""; tz: string };
+  | { action: "reminderShow"; id: number }
+  /** `use` pomijają panele otwarte przed jego dodaniem: wtedy zostaje bez zmian. */
+  | { action: "settings"; name: string; tone: Tone | ""; tz: string; use?: string };
 
 export interface PanelSnapshot {
   tz: string;
   name: string;
   tone: Tone | "";
+  use: string;
   status: string;
   listId: number | null;
   listAvailable: boolean;
@@ -74,10 +77,11 @@ export function panelAction(value: unknown): PanelAction {
       break;
     case "reminderCreate": if (text(b.text, 500) && local(b.local)) return { action: b.action, text: b.text.trim(), local: b.local }; break;
     case "reminderMove": if (id(b.id) && local(b.local)) return { action: b.action, id: b.id, local: b.local }; break;
-    case "reminderDelete": if (id(b.id)) return { action: b.action, id: b.id }; break;
+    case "reminderDelete":
+    case "reminderShow": if (id(b.id)) return { action: b.action, id: b.id }; break;
     case "settings":
-      if (typeof b.name === "string" && b.name.length <= 30 && (b.name.trim() === "" || /^[\p{L}][\p{L}\p{M} .'-]*$/u.test(b.name.trim())) && typeof b.tz === "string" && b.tz.length <= 100 && isValidTz(b.tz) && (b.tone === "" || TONES.some(([tone]) => tone === b.tone))) {
-        return { action: b.action, name: b.name.trim(), tz: b.tz, tone: b.tone as Tone | "" };
+      if (typeof b.name === "string" && b.name.length <= 30 && (b.name.trim() === "" || /^[\p{L}][\p{L}\p{M} .'-]*$/u.test(b.name.trim())) && typeof b.tz === "string" && b.tz.length <= 100 && isValidTz(b.tz) && (b.tone === "" || TONES.some(([tone]) => tone === b.tone)) && (b.use === undefined || b.use === "" || (typeof b.use === "string" && Object.hasOwn(USES, b.use)))) {
+        return { action: b.action, name: b.name.trim(), tz: b.tz, tone: b.tone as Tone | "", ...(b.use === undefined ? {} : { use: b.use as string }) };
       }
       break;
   }
