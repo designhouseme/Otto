@@ -2,7 +2,7 @@
 
 Historia zmian w projekcie. Daty odpowiadają zmianom w repozytorium; sekcja „Niewydane” czeka na wdrożenie bota.
 
-## Niewydane
+## 2026-10-12
 
 ### Nowości
 - Kalendarz w panelu: miesiąc z zaznaczonymi przypomnieniami. Kliknięty dzień pokazuje swoje terminy i podpowiada datę nowego przypomnienia.
