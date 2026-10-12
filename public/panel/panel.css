@@ -18,5 +18,7 @@ dialog{color:var(--ink);background:var(--paper);border:0;border-radius:var(--rad
 .reminder-item .info p.time{font-size:22px;font-weight:800;letter-spacing:-.4px;font-variant-numeric:tabular-nums;line-height:1.2}
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{min-height:40px;padding:6px 13px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:14px;font-weight:700}
 #tz-device{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px}
+.wide{width:100%;margin-top:12px}dialog{max-height:calc(100dvh - 32px);overflow:auto}dialog .feedback{margin:0;min-height:0}
 @media(max-width:360px){main{padding-left:12px;padding-right:12px}.masthead{gap:8px}.masthead img{width:48px;height:48px}.eyebrow{font-size:9px}.tabs button{font-size:12px}.input-row{flex-wrap:wrap}.input-row input{flex-basis:100%}.input-row>.primary{width:100%}}
+@media(max-width:360px){dialog .input-row{flex-direction:column-reverse;align-items:stretch}}
 @media(prefers-reduced-motion:no-preference){button{transition:background .15s,opacity .15s}button:active{transform:translateY(1px)}}

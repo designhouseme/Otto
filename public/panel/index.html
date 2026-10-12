@@ -51,25 +51,11 @@
           <div class="weekdays" aria-hidden="true"><span>pn</span><span>wt</span><span>śr</span><span>cz</span><span>pt</span><span>sb</span><span>nd</span></div>
           <div id="month-grid" class="month-grid" role="group" aria-label="Dni miesiąca"></div>
         </div>
+        <button type="button" id="reminder-new" class="primary wide">Nowe przypomnienie</button>
         <div class="agenda-heading"><h3 id="agenda-title">Wszystkie terminy</h3><button type="button" id="agenda-all" class="link-button" hidden>Pokaż wszystkie</button></div>
         <ul id="reminder-list" class="items" aria-labelledby="agenda-title"></ul>
         <div id="reminders-empty" class="empty"><img src="/stickers/neutral.webp" width="88" height="88" alt=""><h3 id="reminders-empty-title">Żaden termin nie goni.</h3><p id="reminders-empty-text">Ustaw przypomnienie, a odezwę się o czasie.</p></div>
         <p class="note">Treść przypomnień zostaje w czacie. „Pokaż” wyśle Ci ją tam jako cytat.</p>
-        <form id="reminder-form" class="card">
-          <h3>Nowe przypomnienie</h3>
-          <label for="reminder-text">O czym mam przypomnieć?</label>
-          <input id="reminder-text" name="text" required maxlength="500" placeholder="Np. opłacić fakturę" autocomplete="off">
-          <label for="reminder-local">Kiedy?</label>
-          <div class="chips" role="group" aria-label="Szybki wybór terminu">
-            <button type="button" data-preset="h1">Za godzinę</button>
-            <button type="button" data-preset="e18">Dziś 18:00</button>
-            <button type="button" data-preset="j9">Jutro 9:00</button>
-            <button type="button" data-preset="w1">Za tydzień</button>
-          </div>
-          <input id="reminder-local" name="local" type="datetime-local" required>
-          <p class="timezone-note small"></p>
-          <button type="submit" class="primary">Ustaw przypomnienie</button>
-        </form>
       </section>
       <section id="settings-view" role="tabpanel" aria-labelledby="tab-settings" hidden>
         <div class="section-heading"><h2>Po Twojemu.</h2><p>Jak mam pisać i liczyć czas.</p></div>
@@ -91,6 +77,24 @@
       </section>
       <footer>Treść zostaje w Telegramie. Otto pamięta za Ciebie.</footer>
     </div>
+    <dialog id="reminder-dialog" aria-labelledby="reminder-dialog-title">
+      <form id="reminder-form" class="card">
+        <h2 id="reminder-dialog-title">Nowe przypomnienie</h2>
+        <label for="reminder-text">O czym mam przypomnieć?</label>
+        <input id="reminder-text" name="text" required maxlength="500" placeholder="Np. opłacić fakturę" autocomplete="off">
+        <label for="reminder-local">Kiedy?</label>
+        <div class="chips" role="group" aria-label="Szybki wybór terminu">
+          <button type="button" data-preset="h1">Za godzinę</button>
+          <button type="button" data-preset="e18">Dziś 18:00</button>
+          <button type="button" data-preset="j9">Jutro 9:00</button>
+          <button type="button" data-preset="w1">Za tydzień</button>
+        </div>
+        <input id="reminder-local" name="local" type="datetime-local" required>
+        <p class="timezone-note small"></p>
+        <p id="reminder-feedback" class="feedback error" role="alert"></p>
+        <div class="input-row"><button type="button" id="reminder-cancel" class="secondary">Anuluj</button><button type="submit" class="primary">Ustaw przypomnienie</button></div>
+      </form>
+    </dialog>
     <dialog id="move-dialog">
       <form id="move-form" class="card">
         <h2>Zmień termin</h2>

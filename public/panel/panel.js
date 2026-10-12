@@ -13,6 +13,7 @@ function feedback(text, kind = "") {
   $("feedback").textContent = text;
   $("feedback").className = `feedback ${kind}`;
   $("move-feedback").textContent = kind === "error" && $("move-dialog").open ? text : "";
+  $("reminder-feedback").textContent = kind === "error" && $("reminder-dialog").open ? text : "";
 }
 
 function theme() {
@@ -143,18 +144,21 @@ function renderCalendar() {
   $("month-grid").replaceChildren(...cells);
 }
 
-/** Dzień z kalendarza filtruje listę i podpowiada termin nowego przypomnienia. Drugie kliknięcie wraca do wszystkich. */
+/** Dzień z kalendarza filtruje listę. Drugie kliknięcie wraca do wszystkich. */
 function pickDay(key) {
   selectedDay = selectedDay === key ? null : key;
   tg.HapticFeedback?.selectionChanged();
-  if (selectedDay) {
-    const now = localValue(Date.now(), state.tz);
-    const hour = Number(now.slice(11, 13)) + 1;
-    if (key > now.slice(0, 10)) $("reminder-local").value = `${key}T09:00`;
-    else if (hour <= 23) $("reminder-local").value = `${key}T${pad(hour)}:00`;
-  }
   renderCalendar();
   renderAgenda();
+}
+
+/** Termin na start nowego przypomnienia: wybrany dzień o 9:00 (dziś: najbliższa pełna godzina), bez wyboru za godzinę. */
+function suggestedLocal() {
+  const now = localValue(Date.now(), state.tz);
+  const hour = Number(now.slice(11, 13)) + 1;
+  if (selectedDay && selectedDay > now.slice(0, 10)) return `${selectedDay}T09:00`;
+  if (selectedDay && hour <= 23) return `${selectedDay}T${pad(hour)}:00`;
+  return localValue(Date.now() + 3_600_000, state.tz);
 }
 
 function renderAgenda() {
@@ -164,7 +168,7 @@ function renderAgenda() {
   $("agenda-all").hidden = !selectedDay;
   $("reminders-empty").hidden = items.length > 0;
   $("reminders-empty-title").textContent = selectedDay ? "Wolny dzień." : "Żaden termin nie goni.";
-  $("reminders-empty-text").textContent = selectedDay ? "Tego dnia nic nie mam. Ustaw przypomnienie poniżej." : "Ustaw przypomnienie, a odezwę się o czasie.";
+  $("reminders-empty-text").textContent = selectedDay ? "Nic tu nie mam. Dodasz przypomnienie przyciskiem wyżej." : "Ustaw przypomnienie, a odezwę się o czasie.";
   $("reminder-list").replaceChildren(...items.map((reminder) => {
     const day = reminder.local.slice(0, 10);
     const time = `${Number(reminder.local.slice(11, 13))}:${reminder.local.slice(14, 16)}`;
@@ -235,7 +239,6 @@ function render() {
   }
   renderZoneHint();
   $("account-status").textContent = state.status;
-  if (!$("reminder-local").value) $("reminder-local").value = localValue(Date.now() + 3600_000, state.tz);
 }
 
 function view(name, focus = false) {
@@ -263,7 +266,10 @@ $("task-form").addEventListener("submit", async (event) => {
 });
 $("reminder-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (await request({ action: "reminderCreate", text: $("reminder-text").value, local: $("reminder-local").value }, "Ustawione. Odezwę się o czasie.")) $("reminder-text").value = "";
+  if (await request({ action: "reminderCreate", text: $("reminder-text").value, local: $("reminder-local").value }, "Ustawione. Odezwę się o czasie.")) {
+    $("reminder-text").value = "";
+    $("reminder-dialog").close();
+  }
 });
 $("month-prev").addEventListener("click", () => { month = addDays(`${month}-01`, -1).slice(0, 7); renderCalendar(); });
 $("month-next").addEventListener("click", () => { month = addDays(`${month}-28`, 7).slice(0, 7); renderCalendar(); });
@@ -285,6 +291,12 @@ $("settings-form").addEventListener("submit", async (event) => {
     render();
   }
 });
+$("reminder-new").addEventListener("click", () => {
+  $("reminder-feedback").textContent = "";
+  $("reminder-local").value = suggestedLocal();
+  $("reminder-dialog").showModal();
+});
+$("reminder-cancel").addEventListener("click", () => $("reminder-dialog").close());
 $("move-cancel").addEventListener("click", () => $("move-dialog").close());
 $("move-form").addEventListener("submit", async (event) => {
   event.preventDefault();
