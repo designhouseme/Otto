@@ -77,6 +77,15 @@ assert.equal(state.reminders[0].at, moved);
 assert.equal("key" in state, false);
 state = await panel({ action: "settings", name: "Ola", tone: "technical", tz: "America/New_York", digest: null });
 assert.equal(state.digest, null);
+assert.equal(state.titles, false);
+state = await panel({ action: "settings", name: "Ola", tone: "technical", tz: "America/New_York", titles: true });
+state = await panel({ action: "reminderCreate", text: "Odebrać garnitur", local });
+assert.deepEqual(state.reminders.map((r) => r.title ?? null), [null, "Odebrać garnitur"]);
+const titled = state.reminders[1].id;
+state = await panel({ action: "settings", name: "Ola", tone: "technical", tz: "America/New_York", titles: false });
+assert.equal(JSON.stringify(state).includes("garnitur"), false);
+state = await panel({ action: "reminderDelete", id: titled });
+console.log("✓ tytuły tylko po włączeniu, wyłączenie je usuwa");
 console.log("✓ personalizacja i zmiana strefy bez przesuwania przypomnienia");
 console.log("✓ plan dnia i święta w odpowiedzi panelu");
 

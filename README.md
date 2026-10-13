@@ -91,7 +91,7 @@ Na powitanie wysyłam naklejkę. Cały [zestaw moich min](https://t.me/addsticke
 Mniej, niż myślisz. Po lewej cała moja karta o Tobie, po prawej to, co zostaje tylko w Twoim Telegramie.
 
 <p align="center">
-  <img src="docs/readme/prywatnosc.png" width="100%" alt="Karta danych Otta w formie paragonu: numer czatu, strefa, licznik wiadomości, przypomnienie jako numer wiadomości i godzina, zaszyfrowany klucz, personalizacja. Obok czat z zakrytą treścią, która zostaje w Telegramie">
+  <img src="docs/readme/prywatnosc.png" width="100%" alt="Karta danych Otta w formie paragonu: numer czatu, strefa, licznik wiadomości, przypomnienie jako numer wiadomości i godzina, zaszyfrowany tytuł przypomnienia, jeśli go włączysz, zaszyfrowany klucz, personalizacja. Obok czat z zakrytą treścią, która zostaje w Telegramie">
 </p>
 
 | Zapisuję | Nie zapisuję |
@@ -99,6 +99,7 @@ Mniej, niż myślisz. Po lewej cała moja karta o Tobie, po prawej to, co zostaj
 | numer czatu i strefę czasową | treści wiadomości ani historii rozmów |
 | licznik darmowych wiadomości AI | listy zadań (to przypięta wiadomość w Telegramie) |
 | przypomnienia jako numer wiadomości i godzinę, do chwili wysłania | nazwy użytkownika ani zdjęć |
+| krótki tytuł przypomnienia, zaszyfrowany, tylko jeśli włączysz to w panelu | |
 | klucz API, zaszyfrowany (AES-GCM), jeśli go podasz | maili ani numerów telefonów |
 | jak mam się do Ciebie zwracać i w jakim stylu, jeśli podasz | imienia z profilu Telegrama |
 | hash numeru czatu, żeby darmowe wiadomości były raz na konto | |
@@ -122,10 +123,10 @@ Gdy używam AI, treść wiadomości (także zdjęć i głosówek) trafia do dost
 /zapomnij             usuwam Twoje dane
 ```
 
-Panel otwierasz przez `/panel` albo przycisk „Panel” obok pola wiadomości (ustawiany przez `/admin/setup`). Możesz dopisywać i odhaczać zadania, tworzyć przypomnienia, zmieniać ich terminy i je usuwać, a także ustawić imię, styl, to, do czego głównie używasz Otta, i strefę (panel podpowie strefę telefonu, gdy jest inna). Przypomnienia widać w kalendarzu miesiąca z polskimi świętami: kliknięty dzień pokazuje swoje terminy i podpowiada datę nowego przypomnienia, a „Za godzinę”, „Jutro 9:00” czy „Za tydzień” ustawiają termin jednym kliknięciem. W aplikacji Telegrama główna akcja jest na natywnym przycisku na dole okna. W ustawieniach włączysz plan dnia: o wybranej godzinie rano Otto napisze, o której są dziś przypomnienia i co masz na liście, a w pusty dzień nic nie wyśle. Treści zadań panel odczytuje z przypiętej wiadomości, a treści przypomnień pozostają w czacie: panel pokazuje tylko daty, a „Pokaż” prosi Otta, żeby odpowiedział w czacie na oryginalną wiadomość. Nowe przypomnienie z panelu najpierw wysyła swoją treść do czatu.
+Panel otwierasz przez `/panel` albo przycisk „Panel” obok pola wiadomości (ustawiany przez `/admin/setup`). Możesz dopisywać i odhaczać zadania, tworzyć przypomnienia, zmieniać ich terminy i je usuwać, a także ustawić imię, styl, to, do czego głównie używasz Otta, i strefę (panel podpowie strefę telefonu, gdy jest inna). Przypomnienia widać w kalendarzu miesiąca z polskimi świętami: kliknięty dzień pokazuje swoje terminy i podpowiada datę nowego przypomnienia, a „Za godzinę”, „Jutro 9:00” czy „Za tydzień” ustawiają termin jednym kliknięciem. W aplikacji Telegrama główna akcja jest na natywnym przycisku na dole okna. W ustawieniach włączysz plan dnia: o wybranej godzinie rano Otto napisze, o której są dziś przypomnienia i co masz na liście, a w pusty dzień nic nie wyśle. Treści zadań panel odczytuje z przypiętej wiadomości, a treści przypomnień pozostają w czacie: panel pokazuje daty, a „Pokaż” prosi Otta, żeby odpowiedział w czacie na oryginalną wiadomość. Jeśli chcesz widzieć, o czym są przypomnienia, włącz w ustawieniach panelu tytuły: przy nowych przypomnieniach zapiszę krótki, zaszyfrowany tytuł, np. „Faktura za prąd”, a wyłączenie go usuwa. Nowe przypomnienie z panelu najpierw wysyła swoją treść do czatu.
 
 <p align="center">
-  <img src="docs/readme/panel-kalendarz.png" width="40%" alt="Kalendarz w panelu Otta: listopad 2026 z kropkami w dniach z przypomnieniami, wybrana środa 11 listopada podpisana jako Święto Niepodległości i dwa przypomnienia tego dnia, o 10:00 i 13:30, z przyciskami Pokaż, Zmień i Usuń">
+  <img src="docs/readme/panel-kalendarz.png" width="40%" alt="Kalendarz w panelu Otta: listopad 2026 z kropkami w dniach z przypomnieniami, wybrana środa 11 listopada podpisana jako Święto Niepodległości i dwa przypomnienia tego dnia z tytułami, Flaga na balkon o 10:00 i Obiad u mamy o 13:30, z przyciskami Pokaż, Zmień i Usuń">
 </p>
 
 Pod wyborem terminu i przypomnieniem jest także „Inny termin”: Otto otwiera odpowiedź, w której wpisujesz np. „w piątek po południu”, bez AI i bez komendy. Wybór jest ważny 15 minut i anulujesz go przez `/anuluj`. Gdy przygotowuję odpowiedź AI, w nagłówku czatu widać „pisze…”, które znika razem z odpowiedzią. Przyciski odhaczania są zielone, ustawiania przypomnienia niebieskie, a usuwania czerwone w klientach Telegrama, które obsługują kolory.

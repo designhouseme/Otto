@@ -2,6 +2,11 @@
 
 Historia zmian w projekcie. Daty odpowiadają zmianom w repozytorium; sekcja „Niewydane” czeka na wdrożenie bota.
 
+## Niewydane
+
+### Nowości
+- Tytuły przypomnień: po włączeniu w ustawieniach panelu lista, kalendarz, plan dnia i `/przypomnienia` pokazują, o czym jest przypomnienie, np. „Faktura za prąd”. Otto zapisuje wtedy krótki, zaszyfrowany tytuł. Domyślnie wyłączone, a wyłączenie usuwa zapisane tytuły.
+
 ## 2026-10-12
 
 ### Nowości

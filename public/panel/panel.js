@@ -199,19 +199,30 @@ function renderAgenda() {
   $("agenda-holiday").textContent = holiday ? holiday.name : "";
   $("reminders-empty").hidden = items.length > 0;
   $("reminders-empty-title").textContent = selectedDay ? "Wolny dzień." : "Żaden termin nie goni.";
+  $("reminders-note").firstElementChild.textContent = state.titles
+    ? "Tytuły widzisz tylko Ty. Pełna treść zostaje w czacie, a „Pokaż” wyśle ją tam jako cytat."
+    : "Tu widać tylko godziny, treść zostaje w czacie. „Pokaż” wyśle ją tam jako cytat.";
+  $("titles-enable").hidden = state.titles;
   $("reminders-empty-text").textContent = selectedDay ? "Nic tu nie mam. Dodasz przypomnienie przyciskiem wyżej." : "Ustaw przypomnienie, a odezwę się o czasie.";
   $("reminder-list").replaceChildren(...items.map((reminder) => {
     const day = reminder.local.slice(0, 10);
     const time = `${Number(reminder.local.slice(11, 13))}:${reminder.local.slice(14, 16)}`;
-    const when = `${dayLabel(day).toLowerCase()}, ${time}`;
+    const when = `${reminder.title ? `„${reminder.title}”, ` : ""}${dayLabel(day).toLowerCase()}, ${time}`;
     const li = document.createElement("li"); li.className = "item reminder-item";
     const info = document.createElement("div"); info.className = "info";
-    const text = document.createElement("p"); text.className = "time"; text.textContent = time;
-    if (!selectedDay) {
-      const label = document.createElement("span"); label.textContent = dayLabel(day);
-      info.append(label);
+    const label = document.createElement("span");
+    const text = document.createElement("p");
+    if (state.titles) {
+      // Z tytułami najważniejsze jest „co”, a dzień i godzina idą nad nim.
+      label.className = "when"; label.textContent = selectedDay ? time : `${dayLabel(day)}, ${time}`;
+      text.className = reminder.title ? "title" : "untitled"; text.textContent = reminder.title ?? "Bez tytułu, treść jest w czacie";
+      info.append(label, text);
+    } else {
+      text.className = "time"; text.textContent = time;
+      label.textContent = dayLabel(day);
+      if (!selectedDay) info.append(label);
+      info.append(text);
     }
-    info.append(text);
     const actions = document.createElement("div"); actions.className = "actions";
     actions.append(
       button("Pokaż", "secondary", () => request({ action: "reminderShow", id: reminder.id }, "Wysłałem do czatu. Treść zobaczysz w cytacie."), `Pokaż w czacie przypomnienie: ${when}`),
@@ -268,6 +279,7 @@ function render() {
     $("profile-tone").value = state.tone;
     $("profile-use").value = state.use ?? "";
     $("profile-digest").value = state.digest === null || state.digest === undefined ? "" : String(state.digest);
+    $("profile-titles").checked = !!state.titles;
     $("profile-tz").value = state.tz;
   }
   renderZoneHint();
@@ -310,6 +322,12 @@ $("reminder-form").addEventListener("submit", async (event) => {
 $("month-prev").addEventListener("click", () => { month = addDays(`${month}-01`, -1).slice(0, 7); renderCalendar(); });
 $("month-next").addEventListener("click", () => { month = addDays(`${month}-28`, 7).slice(0, 7); renderCalendar(); });
 $("agenda-all").addEventListener("click", () => pickDay(selectedDay));
+// Tytuły włącza się w ustawieniach, gdzie jest napisane, co dokładnie zapisuję.
+$("titles-enable").addEventListener("click", () => {
+  view("settings");
+  $("profile-titles").scrollIntoView({ block: "center" });
+  $("profile-titles").focus();
+});
 document.querySelectorAll("[data-preset]").forEach((chip) => chip.addEventListener("click", () => {
   $("reminder-local").value = presetValue(chip.dataset.preset);
   tg.HapticFeedback?.selectionChanged();
@@ -323,7 +341,7 @@ $("tz-device-use").addEventListener("click", () => {
 $("settings-form").addEventListener("input", () => { settingsDirty = true; renderZoneHint(); syncButtons(); });
 $("settings-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (await request({ action: "settings", name: $("profile-name").value, tone: $("profile-tone").value, use: $("profile-use").value, digest: $("profile-digest").value === "" ? null : Number($("profile-digest").value), tz: $("profile-tz").value }, "Ustawienia zapisane.")) {
+  if (await request({ action: "settings", name: $("profile-name").value, tone: $("profile-tone").value, use: $("profile-use").value, digest: $("profile-digest").value === "" ? null : Number($("profile-digest").value), titles: $("profile-titles").checked, tz: $("profile-tz").value }, "Ustawienia zapisane.")) {
     settingsDirty = false;
     render();
     syncButtons();

@@ -56,7 +56,7 @@
         <p id="agenda-holiday" class="holiday-note" hidden></p>
         <ul id="reminder-list" class="items" aria-labelledby="agenda-title"></ul>
         <div id="reminders-empty" class="empty"><img src="/stickers/neutral.webp" width="88" height="88" alt=""><h3 id="reminders-empty-title">Żaden termin nie goni.</h3><p id="reminders-empty-text">Ustaw przypomnienie, a odezwę się o czasie.</p></div>
-        <p class="note">Treść przypomnień zostaje w czacie. „Pokaż” wyśle Ci ją tam jako cytat.</p>
+        <p class="note" id="reminders-note"><span></span> <button type="button" id="titles-enable" class="link-button" hidden>Pokazuj, o czym są</button></p>
       </section>
       <section id="settings-view" role="tabpanel" aria-labelledby="tab-settings" hidden>
         <div class="section-heading"><h2>Po Twojemu.</h2><p>Jak mam pisać i liczyć czas.</p></div>
@@ -70,6 +70,8 @@
           <label for="profile-digest">Plan dnia</label>
           <select id="profile-digest" name="digest"><option value="">Wyłączony</option><option value="6">Codziennie o 6:00</option><option value="7">Codziennie o 7:00</option><option value="8">Codziennie o 8:00</option><option value="9">Codziennie o 9:00</option><option value="10">Codziennie o 10:00</option></select>
           <p class="small">Rano napiszę w czacie, o której są dziś przypomnienia i co masz na liście. Gdy nic nie ma, nie piszę.</p>
+          <label class="toggle" for="profile-titles"><input type="checkbox" id="profile-titles" name="titles"><span>Pokazuj, o czym są przypomnienia</span></label>
+          <p class="small">Przy nowych przypomnieniach zapiszę krótki tytuł, np. „Faktura za prąd”, zaszyfrowany. Pełna treść zostaje w Telegramie. Wyłączenie usuwa zapisane tytuły.</p>
           <label for="profile-tz">Strefa czasowa</label>
           <input id="profile-tz" name="tz" required maxlength="100" list="timezones" placeholder="Europe/Warsaw" autocapitalize="off" spellcheck="false">
           <p id="tz-device" class="small" hidden><span></span> <button type="button" id="tz-device-use" class="link-button">Użyj tej strefy</button></p>

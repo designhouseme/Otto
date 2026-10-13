@@ -17,8 +17,8 @@ export type PanelAction =
   | { action: "reminderMove"; id: number; local: string }
   | { action: "reminderDelete"; id: number }
   | { action: "reminderShow"; id: number }
-  /** `use` i `digest` pomijają panele otwarte przed ich dodaniem: wtedy zostają bez zmian. `digest`: godzina planu dnia albo null. */
-  | { action: "settings"; name: string; tone: Tone | ""; tz: string; use?: string; digest?: number | null };
+  /** `use`, `digest` i `titles` pomijają panele otwarte przed ich dodaniem: wtedy zostają bez zmian. `digest`: godzina planu dnia albo null. */
+  | { action: "settings"; name: string; tone: Tone | ""; tz: string; use?: string; digest?: number | null; titles?: boolean };
 
 export interface PanelSnapshot {
   tz: string;
@@ -30,7 +30,9 @@ export interface PanelSnapshot {
   listId: number | null;
   listAvailable: boolean;
   tasks: { text: string; index: number; hash: string }[];
-  reminders: { id: number; at: number; when: string }[];
+  /** Czy ktoś włączył tytuły. Bez tego `title` nigdy nie przychodzi. */
+  titles: boolean;
+  reminders: { id: number; at: number; when: string; title?: string }[];
   /** Polskie święta od dziś na 400 dni, do zaznaczenia w kalendarzu. */
   holidays: Holiday[];
 }
@@ -84,11 +86,12 @@ export function panelAction(value: unknown): PanelAction {
     case "reminderDelete":
     case "reminderShow": if (id(b.id)) return { action: b.action, id: b.id }; break;
     case "settings":
-      if (typeof b.name === "string" && b.name.length <= 30 && (b.name.trim() === "" || /^[\p{L}][\p{L}\p{M} .'-]*$/u.test(b.name.trim())) && typeof b.tz === "string" && b.tz.length <= 100 && isValidTz(b.tz) && (b.tone === "" || TONES.some(([tone]) => tone === b.tone)) && (b.use === undefined || b.use === "" || (typeof b.use === "string" && Object.hasOwn(USES, b.use))) && (b.digest === undefined || b.digest === null || (Number.isInteger(b.digest) && (b.digest as number) >= 0 && (b.digest as number) <= 23))) {
+      if (typeof b.name === "string" && b.name.length <= 30 && (b.name.trim() === "" || /^[\p{L}][\p{L}\p{M} .'-]*$/u.test(b.name.trim())) && typeof b.tz === "string" && b.tz.length <= 100 && isValidTz(b.tz) && (b.tone === "" || TONES.some(([tone]) => tone === b.tone)) && (b.use === undefined || b.use === "" || (typeof b.use === "string" && Object.hasOwn(USES, b.use))) && (b.digest === undefined || b.digest === null || (Number.isInteger(b.digest) && (b.digest as number) >= 0 && (b.digest as number) <= 23)) && (b.titles === undefined || typeof b.titles === "boolean")) {
         return {
           action: b.action, name: b.name.trim(), tz: b.tz, tone: b.tone as Tone | "",
           ...(b.use === undefined ? {} : { use: b.use as string }),
           ...(b.digest === undefined ? {} : { digest: b.digest as number | null }),
+          ...(b.titles === undefined ? {} : { titles: b.titles as boolean }),
         };
       }
       break;

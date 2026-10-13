@@ -75,7 +75,7 @@ export const T = {
       "",
       status,
       "",
-      "Nie zapisuję treści Twoich wiadomości. Przypomnienie to dla mnie tylko numer wiadomości i godzina.",
+      "Nie zapisuję treści Twoich wiadomości. Przypomnienie to dla mnie numer wiadomości i godzina, a krótki, zaszyfrowany tytuł tylko wtedy, gdy włączysz to w /panel.",
     ].join("\n"),
   statusKey: (provider: Provider) => `Klucz: ${PROVIDER_NAMES[provider]}, AI bez limitu.`,
   statusFree: (left: number) => `Darmowe wiadomości AI: ${left}.`,
@@ -126,10 +126,14 @@ export const T = {
   customTimeClosed: "✓ Termin wybrany.",
   panel: "Twoja lista, kalendarz przypomnień i ustawienia w jednym miejscu.",
   // Plan dnia (włączany w panelu): tylko godziny i lista, bo treści przypomnień nie trzymamy.
-  digest: (name: string | undefined, day: string, holiday: string | undefined, times: string[], tasks: string[] | null) =>
+  digest: (name: string | undefined, day: string, holiday: string | undefined, times: { time: string; title?: string }[], tasks: string[] | null) =>
     [
       `☀️ Dzień dobry${name ? `, ${name}` : ""}! Dziś ${day}${holiday ? `, ${holiday}` : ""}.`,
-      times.length ? `⏰ ${times.length === 1 ? "Przypomnienie" : "Przypomnienia"} o ${times.join(", ")}.` : "⏰ Na dziś bez przypomnień.",
+      !times.length
+        ? "⏰ Na dziś bez przypomnień."
+        : times.some((t) => t.title)
+        ? `⏰ ${times.length === 1 ? "Przypomnienie" : "Przypomnienia"}:\n${times.map((t) => `• ${t.time} ${t.title ?? "(treść w czacie)"}`).join("\n")}`
+        : `⏰ ${times.length === 1 ? "Przypomnienie" : "Przypomnienia"} o ${times.map((t) => t.time).join(", ")}.`,
       !tasks
         ? "📝 Listę zobaczysz przez /lista."
         : tasks.length

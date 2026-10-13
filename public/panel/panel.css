@@ -18,6 +18,8 @@ dialog{color:var(--ink);background:var(--paper);border:0;border-radius:var(--rad
 .reminder-item .info p.time{font-size:22px;font-weight:800;letter-spacing:-.4px;font-variant-numeric:tabular-nums;line-height:1.2}
 .chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{min-height:40px;padding:6px 13px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:14px;font-weight:700}
 #tz-device{display:flex;flex-wrap:wrap;align-items:center;gap:0 8px}
+.toggle{display:flex;align-items:flex-start;gap:12px;font-size:16px;cursor:pointer}.toggle input{width:22px;height:22px;min-height:0;margin:1px 0 0;padding:0;flex-shrink:0;accent-color:var(--success)}
+.reminder-item .info span.when{font-size:14px;font-weight:700}.reminder-item .info p.title{font-size:18px;font-weight:750;line-height:1.3;letter-spacing:-.2px}.reminder-item .info p.untitled{color:var(--muted);font-size:15px;font-weight:600}
 .holiday-note{margin:-6px 0 12px;color:var(--danger);font-size:14px;font-weight:750}.native .native-hide{display:none!important}
 .wide{width:100%;margin-top:12px}dialog{max-height:calc(100dvh - 32px);overflow:auto}dialog .feedback{margin:0;min-height:0}
 @media(max-width:360px){main{padding-left:12px;padding-right:12px}.masthead{gap:8px}.masthead img{width:48px;height:48px}.eyebrow{font-size:9px}.tabs button{font-size:12px}.input-row{flex-wrap:wrap}.input-row input{flex-basis:100%}.input-row>.primary{width:100%}}

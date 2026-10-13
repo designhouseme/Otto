@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Update } from "../src/telegram";
+import type { Message, Update } from "../src/telegram";
 
 const fake = vi.hoisted(() => ({ nextId: 9000, calls: [] as { method: string; params: Record<string, unknown> }[] }));
 vi.mock("cloudflare:workers", () => ({
@@ -26,30 +26,32 @@ import { Chat } from "../src/chat";
 
 const NOW = Date.UTC(2026, 9, 8, 10);
 const CHAT = 123456;
-function fixture() {
+function fixture(env: Record<string, string> = {}) {
   let state: Record<string, unknown> = { chatId: CHAT, tz: "Europe/Warsaw", claimed: true, freeLeft: 10, lastUpdate: 0 };
-  const reminders: { id: number; msg_id: number; at: number }[] = [];
+  const reminders: { id: number; msg_id: number; at: number; title?: string }[] = [];
   const extra = new Map<string, unknown>();
   const storage = {
     get: async (key: string) => structuredClone(key === "state" ? state : extra.get(key)),
     put: async (key: string, value: Record<string, unknown>) => { if (key === "state") state = structuredClone(value); else extra.set(key, structuredClone(value)); },
     delete: async (key: string) => extra.delete(key),
     setAlarm: vi.fn(async (_at: number) => {}), deleteAlarm: vi.fn(async () => {}),
-    sql: { exec(query: string, ...args: number[]) {
+    sql: { exec(query: string, ...args: (number | string | null)[]) {
       let rows: unknown[] = [];
-      if (query.startsWith("INSERT INTO reminders")) reminders.push({ id: reminders.length + 1, msg_id: args[0], at: args[1] });
+      if (query.startsWith("SELECT * FROM reminders LIMIT 0")) return { columnNames: ["id", "msg_id", "at", "title"], toArray: () => [], one: () => undefined };
+      if (query.startsWith("INSERT INTO reminders")) reminders.push({ id: reminders.length + 1, msg_id: args[0] as number, at: args[1] as number, ...(args[2] ? { title: args[2] as string } : {}) });
+      if (query.startsWith("UPDATE reminders SET title = NULL")) for (const r of reminders) delete r.title;
       if (query.startsWith("DELETE FROM reminders")) reminders.splice(reminders.findIndex((r) => r.id === args[0]) >>> 0, 1);
       if (query.startsWith("SELECT MIN")) rows = [{ at: reminders.length ? Math.min(...reminders.map((r) => r.at)) : null }];
-      if (query.startsWith("SELECT id")) rows = query.includes("at <=") ? reminders.filter((r) => r.at <= args[0]) : reminders;
+      if (query.startsWith("SELECT id")) rows = query.includes("at <=") ? reminders.filter((r) => r.at <= (args[0] as number)) : reminders;
       if (query.startsWith("SELECT at")) rows = reminders;
       if (query.startsWith("SELECT msg_id")) rows = reminders.filter((r) => r.id === args[0]);
       return { toArray: () => rows, one: () => rows[0] };
     } },
   };
-  const chat = new Chat({ storage } as unknown as DurableObjectState, { DEFAULT_TZ: "Europe/Warsaw" } as Env);
+  const chat = new Chat({ storage } as unknown as DurableObjectState, { DEFAULT_TZ: "Europe/Warsaw", ...env } as Env);
   let updateId = 0;
   const send = (text: string, replyId?: number) => chat.handle({ update_id: ++updateId, message: { message_id: 100 + updateId, date: NOW / 1000, chat: { id: CHAT, type: "private" }, text, ...(replyId ? { reply_to_message: { message_id: replyId, date: 0, chat: { id: CHAT, type: "private" } } } : {}) } }, "https://otto.test");
-  const choose = (data: string) => chat.handle({ update_id: ++updateId, callback_query: { id: String(updateId), from: { id: CHAT, first_name: "Test" }, data, message: { message_id: 88, date: 0, chat: { id: CHAT, type: "private" } } } } satisfies Update, "https://otto.test");
+  const choose = (data: string, message: Partial<Message> = {}) => chat.handle({ update_id: ++updateId, callback_query: { id: String(updateId), from: { id: CHAT, first_name: "Test" }, data, message: { message_id: 88, date: 0, chat: { id: CHAT, type: "private" }, ...message } } } satisfies Update, "https://otto.test");
   return { chat, send, choose, reminders, storage, digest: () => extra.get("digest") as { hour: number; next: number; origin?: string } | undefined, state: () => state, pending: () => state.pendingReminder as { target: number; promptId: number; expires: number } | undefined };
 }
 
@@ -220,5 +222,63 @@ describe("plan dnia", () => {
     await f.chat.panel(CHAT, settings(null));
     expect(f.digest()).toBeUndefined();
     expect(f.storage.deleteAlarm).toHaveBeenCalled();
+  });
+});
+
+describe("tytuły przypomnień", () => {
+  const SECRET = { KEY_SECRET: "test-secret-0123456789" };
+  const on = { action: "settings" as const, name: "", tz: "Europe/Warsaw", tone: "" as const, titles: true };
+  const local = "2026-10-09T09:00";
+  const quoted = (text: string) => ({ reply_to_message: { message_id: 55, date: 0, chat: { id: CHAT, type: "private" }, text } });
+
+  it("domyślnie nie zapisuje żadnej treści", async () => {
+    const f = fixture(SECRET);
+    const result = await f.chat.panel(CHAT, { action: "reminderCreate", text: "Faktura za prąd", local });
+    expect(f.reminders[0]).not.toHaveProperty("title");
+    expect(result).toMatchObject({ data: { titles: false } });
+    expect(JSON.stringify(result)).not.toContain("Faktura");
+  });
+  it("po włączeniu trzyma tytuł zaszyfrowany i pokazuje go w panelu i /przypomnienia", async () => {
+    const f = fixture(SECRET);
+    await f.chat.panel(CHAT, on);
+    const result = await f.chat.panel(CHAT, { action: "reminderCreate", text: "Faktura za prąd", local });
+    expect(f.reminders[0].title).toEqual(expect.any(String));
+    expect(f.reminders[0].title).not.toContain("Faktura");
+    expect(result).toMatchObject({ data: { titles: true, reminders: [{ title: "Faktura za prąd" }] } });
+    await f.send("/przypomnienia");
+    expect(fake.calls.at(-1)?.params.text).toContain("· Faktura za prąd");
+  });
+  it("wyłączenie kasuje zapisane tytuły, a nie tylko je chowa", async () => {
+    const f = fixture(SECRET);
+    await f.chat.panel(CHAT, on);
+    await f.chat.panel(CHAT, { action: "reminderCreate", text: "Faktura za prąd", local });
+    await f.chat.panel(CHAT, { ...on, titles: false });
+    expect(f.reminders[0]).not.toHaveProperty("title");
+    expect(await f.chat.panel(CHAT, on)).toMatchObject({ data: { reminders: [expect.not.objectContaining({ title: expect.anything() })] } });
+  });
+  it("pokazuje tytuły w planie dnia i nie przenosi znacznika „📝” przy drzemce", async () => {
+    const f = fixture(SECRET);
+    await f.chat.panel(CHAT, { ...on, digest: 8 });
+    await f.chat.panel(CHAT, { action: "reminderCreate", text: "Faktura za prąd", local: "2026-10-09T15:00" });
+    f.reminders.push({ id: 9, msg_id: 77, at: Date.UTC(2026, 9, 9, 16) });
+    vi.setSystemTime(Date.UTC(2026, 9, 9, 6));
+    fake.calls.length = 0;
+    await f.chat.alarm();
+    expect(fake.calls.find((c) => c.method === "sendMessage")?.params.text).toContain("⏰ Przypomnienia:\n• 15:00 Faktura za prąd\n• 18:00 (treść w czacie)");
+    await f.choose("z:9001:h1", quoted("📝 Odebrać garnitur"));
+    const view = await f.chat.panel(CHAT, { action: "view" });
+    expect("data" in view && view.data.reminders.map((r) => r.title)).toContain("Odebrać garnitur");
+  });
+  it("bierze tytuł z komendy, z oryginału pod przyciskiem i z linku kalendarza", async () => {
+    const f = fixture(SECRET);
+    await f.chat.panel(CHAT, on);
+    await f.send("/przypomnij jutro o 9 faktura za gaz");
+    await f.choose("r:55:j9", quoted("zapłacić czynsz"));
+    await f.choose("s:56:1791612000", { reply_markup: { inline_keyboard: [[{ text: "📅 Google Kalendarz", url: "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Przegl%C4%85d%20auta" }]] } });
+    await f.choose("c:57", quoted("odebrać garnitur"));
+    await f.send("za 2 godziny", f.pending()!.promptId);
+    const view = await f.chat.panel(CHAT, { action: "view" });
+    const titles = "data" in view ? view.data.reminders.map((r) => r.title).sort() : [];
+    expect(titles).toEqual(["Faktura za gaz", "Odebrać garnitur", "Przegląd auta", "Zapłacić czynsz"]);
   });
 });

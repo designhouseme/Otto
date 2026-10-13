@@ -62,6 +62,9 @@ describe("polecenia panelu", () => {
     expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", digest: 7 })).toMatchObject({ digest: 7 });
     expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", digest: null })).toMatchObject({ digest: null });
     for (const digest of [-1, 24, 7.5, "7", false]) expect(() => panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", digest })).toThrow();
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", titles: true })).toMatchObject({ titles: true });
+    expect(panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw" })).not.toHaveProperty("titles");
+    for (const titles of ["true", 1, null]) expect(() => panelAction({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", titles })).toThrow();
     for (const b of [{ action: "reminderShow", id: "7" }, { action: "reminderShow", id: 0 }, ...["toString", "__proto__", "firma", 5, null].map((use) => ({ action: "settings", name: "", tone: "", tz: "Europe/Warsaw", use }))]) {
       expect(() => panelAction(b)).toThrow();
     }

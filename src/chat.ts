@@ -2,13 +2,14 @@
  * Jeden Otto = jeden obiekt na jedną rozmowę prywatną.
  *
  * Trzymamy tylko: numer czatu, strefę, licznik darmowych wiadomości (10 na start, raz na konto),
- * zaszyfrowany klucz, numer przypiętej listy, przypomnienia jako (numer wiadomości, godzina), godzinę planu dnia
+ * zaszyfrowany klucz, numer przypiętej listy, przypomnienia jako (numer wiadomości, godzina), godzinę planu dnia,
+ * a tylko po włączeniu tytułów w panelu także krótki, zaszyfrowany tytuł przypomnienia
  * i to, co ktoś sam podał przy personalizacji (jak się zwracać, jak pisać, do czego używa Otta).
  * Treść wiadomości zostaje w Telegramie: przypominając, Otto odpowiada na oryginał.
  * Głosówki i zdjęcia pobieramy z Telegrama tylko na czas jednego zapytania do modelu.
  *
  * Otto odpowiada zwykłymi wiadomościami. Odpowiedź „na wiadomość” to przypomnienie i jego podgląd z panelu,
- * bo tylko tak widać, czego dotyczy, skoro treści nie zapisujemy.
+ * bo tylko tak widać, czego dotyczy, skoro pełnej treści nie zapisujemy.
  *
  * Aktualizacje przetwarzamy po kolei (kolejka w pamięci), bo między wywołaniami
  * Telegrama obiekt może dostać kolejne zdarzenie i nadpisać stan.
@@ -42,8 +43,10 @@ interface State {
   onboarded?: boolean;
   awaiting?: "key" | "name";
   listId?: number;
-  /** Tylko identyfikatory i czas ważności, bez treści wiadomości. */
-  pendingReminder?: { target: number; promptId: number; expires: number };
+  /** Identyfikatory i czas ważności; tytuł tylko zaszyfrowany i tylko przy włączonych tytułach. */
+  pendingReminder?: { target: number; promptId: number; expires: number; title?: string };
+  /** Krótkie tytuły przypomnień w panelu i /przypomnienia. Domyślnie wyłączone: wtedy nie zapisujemy żadnej treści. */
+  titles?: boolean;
 }
 
 /** Plan dnia: godzina, najbliższe wysłanie i adres panelu do przycisku. Osobny klucz, bo czyta go też alarm. */
@@ -72,7 +75,9 @@ export class Chat extends DurableObject<Env> {
   }
 
   private schema() {
-    this.sql.exec("CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, msg_id INTEGER NOT NULL, at INTEGER NOT NULL)");
+    this.sql.exec("CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, msg_id INTEGER NOT NULL, at INTEGER NOT NULL, title TEXT)");
+    // Tytuł doszedł później: starsze rozmowy dostają kolumnę raz, przy pierwszym uruchomieniu nowej wersji.
+    if (!this.sql.exec("SELECT * FROM reminders LIMIT 0").columnNames.includes("title")) this.sql.exec("ALTER TABLE reminders ADD COLUMN title TEXT");
   }
 
   /** Wejście z Workera: jedna aktualizacja z webhooka. */
@@ -114,7 +119,7 @@ export class Chat extends DurableObject<Env> {
           if (action.action === "reminderCreate") {
             // Treść trafia wyłącznie do Telegrama. W bazie zostaje ID wysłanej wiadomości.
             const source = await this.say(s, `📝 ${action.text}`);
-            await this.addReminder(source.message_id, at);
+            await this.addReminder(source.message_id, at, await this.sealTitle(s, action.text));
             await this.say(s, T.reminderSet(formatWhen(at, now, s.tz))).catch(() => {});
           } else {
             if (!this.sql.exec("SELECT id FROM reminders WHERE id = ?", action.id).toArray().length) throw new PanelError(409, "To przypomnienie już zniknęło. Odśwież panel.");
@@ -135,6 +140,14 @@ export class Chat extends DurableObject<Env> {
           s.tz = action.tz;
           s.profile = { ...s.profile, name: action.name || undefined, tone: action.tone || undefined, ...(action.use === undefined ? {} : { use: action.use || undefined }) };
           if (s.awaiting === "name") s.awaiting = undefined;
+          if (action.titles !== undefined) {
+            s.titles = action.titles || undefined;
+            // Wyłączenie kasuje zapisane tytuły, nie tylko je chowa.
+            if (!action.titles) {
+              this.sql.exec("UPDATE reminders SET title = NULL");
+              if (s.pendingReminder) delete s.pendingReminder.title;
+            }
+          }
           // Także bez zmiany godziny: nowa strefa przesuwa najbliższy plan dnia.
           await this.setDigest(s, action.digest === undefined ? ((await this.digest())?.hour ?? null) : action.digest);
         }
@@ -156,7 +169,13 @@ export class Chat extends DurableObject<Env> {
       holidays: holidaysBetween(dateKey(now, s.tz), dateKey(now + 400 * DAY, s.tz)),
       listId: s.listId ?? null, listAvailable: !s.listId || list.ok,
       tasks: list.tasks.map((text, index) => ({ text, index, hash: shortHash(text) })),
-      reminders: this.sql.exec<{ id: number; at: number }>("SELECT id, at FROM reminders ORDER BY at").toArray().map((r) => ({ ...r, when: formatShort(r.at, s.tz) })),
+      titles: !!s.titles,
+      reminders: await Promise.all(
+        this.sql
+          .exec<{ id: number; at: number; title: string | null }>("SELECT id, at, title FROM reminders ORDER BY at")
+          .toArray()
+          .map(async (r) => ({ id: r.id, at: r.at, when: formatShort(r.at, s.tz), title: await this.openTitle(s, r.title) })),
+      ),
     };
   }
 
@@ -545,10 +564,12 @@ export class Chat extends DurableObject<Env> {
     const target = msg.reply_to_message?.message_id ?? msg.message_id;
     const lines: string[] = [];
     const set: number[] = [];
+    const title = plan.title || cleanTitle(said) || T.calendarTitle;
+    const sealedTitle = await this.sealTitle(s, title);
     for (const local of plan.reminders) {
       const at = reminderAt(local, now, s.tz);
       if (!at || at < now + 30_000 || at > now + 400 * DAY) continue;
-      await this.addReminder(target, at);
+      await this.addReminder(target, at, sealedTitle);
       set.push(at);
       lines.push(T.reminderSet(formatWhen(at, now, s.tz)));
     }
@@ -558,7 +579,6 @@ export class Chat extends DurableObject<Env> {
       .map((v) => reminderAt(v, now, s.tz))
       .filter((at): at is number => !!at && at > now + 60_000 && at < now + 400 * DAY && !set.some((x) => Math.abs(x - at) < 60_000))
       .slice(0, 2);
-    const title = plan.title || cleanTitle(said) || T.calendarTitle;
     const keyboard: Button[][] = [];
     for (const at of set.slice(0, 2)) keyboard.push(await this.calendarRow(s, title, at, set.length > 1));
     for (const at of suggested) {
@@ -674,12 +694,12 @@ export class Chat extends DurableObject<Env> {
 
   // ---- przypomnienia ----
 
-  private async askCustomTime(s: State, target: number, retry = false) {
+  private async askCustomTime(s: State, target: number, retry = false, title?: string | null) {
     const prompt = await this.say(s, retry ? T.customTimeInvalid : T.customTime, {
       reply_parameters: { message_id: target, allow_sending_without_reply: true },
       reply_markup: { force_reply: true, input_field_placeholder: "Np. jutro o 9 albo za 45 minut" },
     });
-    s.pendingReminder = { target, promptId: prompt.message_id, expires: Date.now() + 15 * 60_000 };
+    s.pendingReminder = { target, promptId: prompt.message_id, expires: Date.now() + 15 * 60_000, ...(title ? { title } : {}) };
   }
 
   private async customTimeReply(s: State, text: string) {
@@ -690,8 +710,8 @@ export class Chat extends DurableObject<Env> {
       return this.say(s, T.customTimeExpired);
     }
     const at = parseWhen(text, now, s.tz);
-    if (!at || at < now + 30_000 || at > now + 400 * DAY) return this.askCustomTime(s, pending.target, true);
-    await this.addReminder(pending.target, at);
+    if (!at || at < now + 30_000 || at > now + 400 * DAY) return this.askCustomTime(s, pending.target, true, pending.title);
+    await this.addReminder(pending.target, at, pending.title ?? null);
     s.pendingReminder = undefined;
     // Po pomyślnym ustawieniu pytanie przestaje otwierać pole odpowiedzi.
     await this.edit(s, pending.promptId, T.customTimeClosed).catch(() => {});
@@ -705,8 +725,8 @@ export class Chat extends DurableObject<Env> {
     const now = Date.now();
     const at = arg ? parseWhen(arg, now, s.tz) : null;
     if (at) {
-      await this.addReminder(target, at);
       const title = cleanTitle(arg) || cleanTitle(msg.reply_to_message?.text ?? msg.reply_to_message?.caption ?? "") || T.calendarTitle;
+      await this.addReminder(target, at, await this.sealTitle(s, title));
       return this.say(s, T.reminderSet(formatWhen(at, now, s.tz)), { reply_markup: { inline_keyboard: [await this.calendarRow(s, title, at)] } });
     }
     // Termin do wybrania: przyciski muszą wskazywać, o którą wiadomość chodzi, więc tu odpowiadamy na nią.
@@ -717,27 +737,53 @@ export class Chat extends DurableObject<Env> {
   }
 
   private reminderRows() {
-    return this.sql.exec<{ id: number; msg_id: number; at: number }>("SELECT id, msg_id, at FROM reminders ORDER BY at LIMIT 30").toArray();
+    return this.sql.exec<{ id: number; msg_id: number; at: number; title: string | null }>("SELECT id, msg_id, at, title FROM reminders ORDER BY at LIMIT 30").toArray();
   }
 
-  private remindersView(s: State) {
+  private async remindersView(s: State) {
     const rows = this.reminderRows();
     if (!rows.length) return { text: T.noReminders, reply_markup: { inline_keyboard: [] as Button[][] } };
-    const text = [T.remindersHeader, "", ...rows.map((r, i) => `${i + 1}. ${formatShort(r.at, s.tz)}`), "", T.remindersNote].join("\n");
+    const lines = await Promise.all(rows.map(async (r, i) => {
+      const title = await this.openTitle(s, r.title);
+      return `${i + 1}. ${formatShort(r.at, s.tz)}${title ? ` · ${title}` : ""}`;
+    }));
+    const text = [T.remindersHeader, "", ...lines, "", T.remindersNote].join("\n");
     const buttons = rows.map((r, i) => ({ text: `✕ ${i + 1}`, style: "danger" as const, callback_data: `x:${r.id}` }));
     const keyboard: Button[][] = [];
     for (let i = 0; i < buttons.length; i += 5) keyboard.push(buttons.slice(i, i + 5));
     return { text, reply_markup: { inline_keyboard: keyboard } };
   }
 
-  private showReminders(s: State) {
-    const view = this.remindersView(s);
+  private async showReminders(s: State) {
+    const view = await this.remindersView(s);
     return this.say(s, view.text, { reply_markup: view.reply_markup });
   }
 
-  private async addReminder(msgId: number, at: number) {
-    this.sql.exec("INSERT INTO reminders (msg_id, at) VALUES (?, ?)", msgId, at);
+  private async addReminder(msgId: number, at: number, title: string | null = null) {
+    this.sql.exec("INSERT INTO reminders (msg_id, at, title) VALUES (?, ?, ?)", msgId, at, title);
     await this.rearm();
+  }
+
+  /** Tytuł do panelu: tylko przy włączonych tytułach, skrócony i zaszyfrowany (osobny kontekst niż klucz API). */
+  private async sealTitle(s: State, title?: string | null): Promise<string | null> {
+    // „📝 ” to znacznik wiadomości z panelu, na którą wskazuje przypomnienie; drzemka bierze tytuł z niej.
+    const clean = title?.replace(/^📝\s*/u, "").replace(/\s+/g, " ").trim().slice(0, 60);
+    if (!s.titles || !clean || clean === T.calendarTitle || !this.env.KEY_SECRET) return null;
+    return seal(clean, this.env.KEY_SECRET, `tytul:${s.chatId}`);
+  }
+
+  private async openTitle(s: State, sealed: string | null): Promise<string | undefined> {
+    if (!s.titles || !sealed || !this.env.KEY_SECRET) return undefined;
+    return unseal(sealed, this.env.KEY_SECRET, `tytul:${s.chatId}`).catch(() => undefined);
+  }
+
+  /** Tytuł z wiadomości z przyciskami: oryginał, na który odpowiada, albo tytuł z linku Google Kalendarza pod nią. */
+  private titleFrom(message?: Message) {
+    const source = message?.reply_to_message;
+    const quoted = cleanTitle(source?.text ?? source?.caption ?? "");
+    if (quoted) return quoted;
+    const google = message?.reply_markup?.inline_keyboard.flat().find((button) => button.url?.startsWith("https://calendar.google.com/"));
+    return google?.url ? (new URL(google.url).searchParams.get("text") ?? "") : "";
   }
 
   /** Obiekt ma jeden alarm: zawsze ustawiamy go na najbliższe przypomnienie albo plan dnia. */
@@ -769,11 +815,8 @@ export class Chat extends DurableObject<Env> {
   private async sendDigest(s: State, digest: Digest) {
     const now = Date.now();
     const today = dateKey(now, s.tz);
-    const times = this.sql
-      .exec<{ at: number }>("SELECT at FROM reminders ORDER BY at")
-      .toArray()
-      .filter((r) => dateKey(r.at, s.tz) === today)
-      .map((r) => formatClock(r.at, s.tz));
+    const rows = this.sql.exec<{ at: number; title: string | null }>("SELECT at, title FROM reminders ORDER BY at").toArray().filter((r) => dateKey(r.at, s.tz) === today);
+    const times = await Promise.all(rows.map(async (r) => ({ time: formatClock(r.at, s.tz), title: await this.openTitle(s, r.title) })));
     // Lista, która nie jest najnowszą pinezką, jest nieczytelna, a nie pusta: wtedy tylko odsyłamy do /lista.
     const list = await this.readList(s, false);
     const tasks = s.listId && !list.ok ? null : list.tasks;
@@ -833,7 +876,7 @@ export class Chat extends DurableObject<Env> {
       const target = Number(a);
       if (!Number.isSafeInteger(target) || target <= 0) return;
       s.awaiting = undefined;
-      await this.askCustomTime(s, target);
+      await this.askCustomTime(s, target, false, await this.sealTitle(s, this.titleFrom(q.message)));
       return;
     }
 
@@ -849,7 +892,7 @@ export class Chat extends DurableObject<Env> {
           toast = T.timePassed;
           break;
         }
-        await this.addReminder(Number(a), at);
+        await this.addReminder(Number(a), at, await this.sealTitle(s, this.titleFrom(message)));
         if (message) {
           // Tekst zostaje, dochodzi potwierdzenie; znika tylko ten przycisk, kalendarz zostaje.
           const rows = (message.reply_markup?.inline_keyboard ?? []).map((row) => row.filter((btn) => btn.callback_data !== q.data)).filter((row) => row.length);
@@ -874,7 +917,7 @@ export class Chat extends DurableObject<Env> {
           toast = T.timePassed;
           break;
         }
-        await this.addReminder(Number(a), at);
+        await this.addReminder(Number(a), at, await this.sealTitle(s, this.titleFrom(message)));
         if (message) await this.edit(s, message.message_id, T.reminderSet(formatWhen(at, now, s.tz)));
         toast = "Ustawione";
         break;
@@ -903,7 +946,7 @@ export class Chat extends DurableObject<Env> {
         this.sql.exec("DELETE FROM reminders WHERE id = ?", Number(a));
         await this.rearm();
         if (message) {
-          const view = this.remindersView(s);
+          const view = await this.remindersView(s);
           await this.edit(s, message.message_id, view.text, view.reply_markup);
         }
         toast = "Usunięte";
