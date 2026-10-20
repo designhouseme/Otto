@@ -2,6 +2,11 @@
 
 Historia zmian w projekcie. Daty odpowiadają zmianom w repozytorium; sekcja „Niewydane” czeka na wdrożenie bota.
 
+## Niewydane
+
+### Nowości
+- Widok dni w kalendarzu panelu: oprócz miesiąca wybierzesz tydzień, 2 albo 4 tygodnie z dniami pod sobą. Przy każdym dniu widać godziny przypomnień (i tytuły, jeśli je włączysz), a cały zakres mieści się na jednym ekranie. Panel zapamięta wybrany widok.
+
 ## 2026-10-13
 
 ### Nowości

@@ -7,6 +7,11 @@ let settingsDirty = false;
 /** Kalendarz: oglądany miesiąc („RRRR-MM”) i wybrany dzień („RRRR-MM-DD”) w strefie konta. */
 let month;
 let selectedDay = null;
+/** Widok kalendarza: 0 to siatka miesiąca, 1, 2 albo 4 to tyle tygodni z dniami pod sobą od poniedziałku „week”. Wybór pamięta to urządzenie. */
+let weeks = 0;
+let week;
+try { weeks = Number(localStorage.getItem("otto-calendar-weeks")) || 0; } catch { /* brak pamięci przeglądarki */ }
+if (![0, 1, 2, 4].includes(weeks)) weeks = 0;
 let currentView = "tasks";
 const DAY_MS = 86_400_000;
 // Natywny przycisk Telegrama i strzałka wstecz zastępują przyciski na stronie, gdy klient je ma.
@@ -104,6 +109,9 @@ const pad = (value) => String(value).padStart(2, "0");
 const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 const utcDay = (key) => { const [y, m, d] = key.split("-").map(Number); return Date.UTC(y, m - 1, d); };
 const addDays = (key, days) => new Date(utcDay(key) + days * DAY_MS).toISOString().slice(0, 10);
+const weekday = (key) => (new Date(utcDay(key)).getUTCDay() + 6) % 7;
+const monday = (key) => addDays(key, -weekday(key));
+const WEEKDAYS = ["pn", "wt", "śr", "cz", "pt", "sb", "nd"];
 // Daty kalendarza to dni w strefie konta, więc formatujemy je jako UTC: bez przesunięć strefy przeglądarki.
 const dayFormat = (options) => new Intl.DateTimeFormat("pl-PL", { ...options, timeZone: "UTC" });
 const today = () => localValue(Date.now(), state.tz).slice(0, 10);
@@ -135,41 +143,98 @@ function presetValue(preset) {
   return `${addDays(day, 7)}T${time}`;
 }
 
+/** „19–25 października” albo „26 paź–22 lis”, z rokiem, gdy zakres sięga innego roku. */
+function rangeLabel(from, to) {
+  const format = dayFormat({ day: "numeric", month: from.slice(0, 7) === to.slice(0, 7) ? "long" : "short", ...(to.slice(0, 4) !== today().slice(0, 4) ? { year: "numeric" } : {}) });
+  return format.formatRange ? format.formatRange(utcDay(from), utcDay(to)) : `${format.format(utcDay(from))} – ${format.format(utcDay(to))}`;
+}
+
 function renderCalendar() {
   const now = Date.now();
   const first = today();
   const limit = localValue(now + 400 * DAY_MS, state.tz).slice(0, 10);
-  if (!month || month < first.slice(0, 7)) month = first.slice(0, 7);
-  if (month > limit.slice(0, 7)) month = limit.slice(0, 7);
   const holidays = new Map(state.holidays.map((holiday) => [holiday.date, holiday.name]));
-  const counts = new Map();
+  const byDay = new Map();
   for (const reminder of state.reminders) {
-    const key = localValue(reminder.at, state.tz).slice(0, 10);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const local = localValue(reminder.at, state.tz);
+    const key = local.slice(0, 10);
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push({ time: `${Number(local.slice(11, 13))}:${local.slice(14, 16)}`, title: reminder.title });
   }
-  const [y, m] = month.split("-").map(Number);
-  $("month-label").textContent = capitalize(dayFormat({ month: "long", year: "numeric" }).format(Date.UTC(y, m - 1, 1)));
-  lock($("month-prev"), month <= first.slice(0, 7));
-  lock($("month-next"), month >= limit.slice(0, 7));
-  const blanks = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
-  const cells = Array.from({ length: blanks }, () => Object.assign(document.createElement("span"), { className: "blank" }));
-  for (let d = 1; d <= new Date(Date.UTC(y, m, 0)).getUTCDate(); d++) {
-    const key = `${month}-${pad(d)}`;
-    const count = counts.get(key) ?? 0;
+  const dayButton = (key) => {
+    const count = byDay.get(key)?.length ?? 0;
     const day = document.createElement("button");
     day.type = "button";
     const holiday = holidays.get(key);
     day.className = `day${key === first ? " today" : ""}${count ? " has" : ""}${holiday ? " holiday" : ""}`;
-    day.textContent = d;
     day.setAttribute("aria-pressed", String(key === selectedDay));
     day.setAttribute("aria-label", `${dayLabel(key, true)}${holiday ? `, ${holiday}` : ""}: ${count ? `${count} ${reminderWord(count)}` : "bez przypomnień"}`);
     if (holiday) day.title = holiday;
     if (key === first) day.setAttribute("aria-current", "date");
     lock(day, key < first || key > limit);
     day.addEventListener("click", () => pickDay(key));
+    return day;
+  };
+  $("calendar").classList.toggle("weeks", weeks > 0);
+  $("month-grid").hidden = $("calendar").querySelector(".weekdays").hidden = weeks > 0;
+  $("week-list").hidden = !weeks;
+  document.querySelectorAll(".spans button").forEach((choice) => choice.setAttribute("aria-pressed", String(Number(choice.dataset.weeks) === weeks)));
+  const unit = weeks === 1 ? ["Poprzedni tydzień", "Następny tydzień"] : weeks ? ["Poprzednie tygodnie", "Następne tygodnie"] : ["Poprzedni miesiąc", "Następny miesiąc"];
+  for (const [id, label] of [["month-prev", unit[0]], ["month-next", unit[1]]]) { $(id).setAttribute("aria-label", label); $(id).title = label; }
+  if (weeks) {
+    // Dni pod sobą: wiersz na dzień, z godzinami (i tytułami) zamiast kropki, bo jest na nie miejsce.
+    if (!week || week < monday(first)) week = monday(first);
+    if (week > monday(limit)) week = monday(limit);
+    $("month-label").textContent = rangeLabel(week, addDays(week, weeks * 7 - 1));
+    lock($("month-prev"), week <= monday(first));
+    lock($("month-next"), addDays(week, weeks * 7) > limit);
+    $("week-list").dataset.weeks = weeks;
+    $("week-list").replaceChildren(...Array.from({ length: weeks * 7 }, (_, index) => {
+      const key = addDays(week, index);
+      const day = dayButton(key);
+      const holiday = holidays.get(key);
+      day.className += `${weekday(key) > 4 ? " weekend" : ""} row`;
+      const date = Object.assign(document.createElement("span"), { className: "date" });
+      date.append(Object.assign(document.createElement("small"), { textContent: WEEKDAYS[weekday(key)] }), Object.assign(document.createElement("b"), { textContent: Number(key.slice(8)) }));
+      if (key.endsWith("-01")) date.append(Object.assign(document.createElement("small"), { textContent: dayFormat({ month: "short" }).format(utcDay(key)) }));
+      const events = Object.assign(document.createElement("span"), { className: "events" });
+      for (const item of byDay.get(key) ?? []) {
+        const event = Object.assign(document.createElement("span"), { className: "event" });
+        event.append(Object.assign(document.createElement("b"), { textContent: item.time }), item.title ? ` ${item.title}` : "");
+        events.append(event);
+      }
+      // Święto na końcu, żeby w wąskim wierszu nie zasłoniło godzin. W widoku tygodnia CSS przenosi je na górę.
+      if (holiday) events.append(Object.assign(document.createElement("span"), { className: "holiday-name", textContent: holiday }));
+      day.append(date, events);
+      return day;
+    }));
+    return;
+  }
+  if (!month || month < first.slice(0, 7)) month = first.slice(0, 7);
+  if (month > limit.slice(0, 7)) month = limit.slice(0, 7);
+  const [y, m] = month.split("-").map(Number);
+  $("month-label").textContent = capitalize(dayFormat({ month: "long", year: "numeric" }).format(Date.UTC(y, m - 1, 1)));
+  lock($("month-prev"), month <= first.slice(0, 7));
+  lock($("month-next"), month >= limit.slice(0, 7));
+  const blanks = weekday(`${month}-01`);
+  const cells = Array.from({ length: blanks }, () => Object.assign(document.createElement("span"), { className: "blank" }));
+  for (let d = 1; d <= new Date(Date.UTC(y, m, 0)).getUTCDate(); d++) {
+    const day = dayButton(`${month}-${pad(d)}`);
+    day.textContent = d;
     cells.push(day);
   }
   $("month-grid").replaceChildren(...cells);
+}
+
+/** Zmiana widoku zostaje przy wybranym dniu albo oglądanym okresie. Tygodnie przewijają się na górę ekranu, żeby było widać cały zakres. */
+function setWeeks(value) {
+  if (value) week = monday(selectedDay ?? (weeks ? week : month > today().slice(0, 7) ? `${month}-01` : today()));
+  else month = (selectedDay ?? week ?? today()).slice(0, 7);
+  weeks = value;
+  try { localStorage.setItem("otto-calendar-weeks", String(value)); } catch { /* brak pamięci przeglądarki */ }
+  tg.HapticFeedback?.selectionChanged();
+  renderCalendar();
+  if (value) $("calendar").scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 
 /** Dzień z kalendarza filtruje listę. Drugie kliknięcie wraca do wszystkich. */
@@ -296,6 +361,8 @@ function view(name, focus = false) {
     if (selected && focus) tab.focus();
   });
   currentView = name;
+  // Widok tygodni ma zająć cały ekran, więc po kliknięciu zakładki kalendarz staje na górze.
+  if (name === "reminders" && weeks && state && !focus) $("calendar").scrollIntoView({ block: "start" });
   syncButtons();
 }
 
@@ -319,8 +386,9 @@ $("reminder-form").addEventListener("submit", async (event) => {
     $("reminder-dialog").close();
   }
 });
-$("month-prev").addEventListener("click", () => { month = addDays(`${month}-01`, -1).slice(0, 7); renderCalendar(); });
-$("month-next").addEventListener("click", () => { month = addDays(`${month}-28`, 7).slice(0, 7); renderCalendar(); });
+$("month-prev").addEventListener("click", () => { if (weeks) week = addDays(week, -7 * weeks); else month = addDays(`${month}-01`, -1).slice(0, 7); renderCalendar(); });
+$("month-next").addEventListener("click", () => { if (weeks) week = addDays(week, 7 * weeks); else month = addDays(`${month}-28`, 7).slice(0, 7); renderCalendar(); });
+document.querySelectorAll(".spans button").forEach((choice) => choice.addEventListener("click", () => setWeeks(Number(choice.dataset.weeks))));
 $("agenda-all").addEventListener("click", () => pickDay(selectedDay));
 // Tytuły włącza się w ustawieniach, gdzie jest napisane, co dokładnie zapisuję.
 $("titles-enable").addEventListener("click", () => {

@@ -42,7 +42,13 @@
       </section>
       <section id="reminders-view" role="tabpanel" aria-labelledby="tab-reminders" hidden>
         <div class="section-heading"><h2>Pamiętam za Ciebie.</h2><p class="timezone-note"></p></div>
-        <div class="card calendar">
+        <div id="calendar" class="card calendar">
+          <div class="spans" role="group" aria-label="Widok kalendarza">
+            <button type="button" data-weeks="0" aria-pressed="true">Miesiąc</button>
+            <button type="button" data-weeks="1" aria-pressed="false">Tydzień</button>
+            <button type="button" data-weeks="2" aria-pressed="false" title="2 tygodnie">2 tyg.</button>
+            <button type="button" data-weeks="4" aria-pressed="false" title="4 tygodnie">4 tyg.</button>
+          </div>
           <div class="month-bar">
             <button type="button" id="month-prev" class="icon-button" aria-label="Poprzedni miesiąc" title="Poprzedni miesiąc">‹</button>
             <h3 id="month-label" aria-live="polite"></h3>
@@ -50,6 +56,7 @@
           </div>
           <div class="weekdays" aria-hidden="true"><span>pn</span><span>wt</span><span>śr</span><span>cz</span><span>pt</span><span>sb</span><span>nd</span></div>
           <div id="month-grid" class="month-grid" role="group" aria-label="Dni miesiąca"></div>
+          <div id="week-list" class="week-list" role="group" aria-label="Dni tygodni" hidden></div>
         </div>
         <button type="button" id="reminder-new" class="primary wide native-hide">Nowe przypomnienie</button>
         <div class="agenda-heading"><h3 id="agenda-title">Wszystkie terminy</h3><button type="button" id="agenda-all" class="link-button" hidden>Pokaż wszystkie</button></div>
